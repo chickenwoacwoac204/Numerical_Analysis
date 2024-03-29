@@ -58,6 +58,6 @@ type bisectionMethod(type (*f)(type x), type a, type b, type error, int iteratio
 }
 
 int main() {
-	long double e = bisectionMethod(f, 2.0, 3.0, 0.5*(1e-8), 30);
+	long double e = bisectionMethod(f, 2.0, 3.0, 0.5*(1e-8), 29);
 	return 0; 
 }
