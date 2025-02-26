@@ -40,8 +40,8 @@ def sign(x):
 # max_iterations = 0 (đây là số vòng lặp tối đa, nếu đặt = 0 thì sẽ lặp cho đến khi đạt error nhỏ hơn error truyền vào)
 def bisection_method(f, a, b, error=1e-6, max_iterations=0):
     # bắt lỗi
-    if f(a) * f(b) > 0:
-        raise ValueError("Không thể dùng phương pháp chia đôi do f(a) f(b) cùng dấu.")
+    if f(a) * f(b) >= 0:
+        raise ValueError("Không thể dùng phương pháp chia đôi do f(a)*f(b) lớn hơn hoặc bằng 0.")
     if a >= b:
         raise ValueError("Hãy nhập a (giá trị nhỏ hơn) trước, rồi nhập b (giá trị lớn hơn) sau.")
     if error <= 0:
@@ -88,8 +88,8 @@ def bisection_method(f, a, b, error=1e-6, max_iterations=0):
 # hàm main bọc trong try-except: Nếu đầu vào không hợp lệ, in thông báo lỗi thay vì dừng chương trình đột ngột
 if __name__ == "__main__":
     try:
-        result = bisection_method(f, -2, -1, 1e-7, 30)   # 1e-7 = 1*10^(-7)
-        print(f"Ket qua: {result:.10f}")
+        result = bisection_method(f, -2, -1, 1e-7, 30)   # nhập khoảng cách ly nghiệm lần lượt là a và b, sai số [1e-7 = 1*10^(-7)] và số lần lặp tối đa
+        print(f"Nghiệm gần đúng: {result:.10f}")
     # bắt lỗi: hàm nhận giá trị đầu vào không hợp lệ nhưng đúng về kiểu dữ liệu
     except ValueError as e:
         print(f"Error: {e}")
