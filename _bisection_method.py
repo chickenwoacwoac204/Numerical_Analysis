@@ -36,8 +36,8 @@ def f(x):
 def sign(x):
     return (x > 0) - (x < 0)
 
-# Mặc định error = 1e-6 (dùng để tránh lỗi missing item, không cần sửa ở đây);
-# iterations = 0 (đây là số vòng lặp tối đa, nếu đặt = 0 thì sẽ lặp cho đến khi đạt error nhỏ hơn error truyền vào)
+# mặc định error = 1e-6 (dùng để tránh lỗi missing item, không cần sửa ở đây)
+# max_iterations = 0 (đây là số vòng lặp tối đa, nếu đặt = 0 thì sẽ lặp cho đến khi đạt error nhỏ hơn error truyền vào)
 def bisection_method(f, a, b, error=1e-6, max_iterations=0):
     # bắt lỗi
     if f(a) * f(b) > 0:
