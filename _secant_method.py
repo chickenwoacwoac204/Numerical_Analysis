@@ -1,26 +1,34 @@
-# phương pháp dây cung
+# phương pháp dây cung (sai số tuyệt đối) (sai số tương đối = sai số tuyệt đối / x)
+# công thức sai số mục tiêu: delta = abs(f(x_next)) / min_derivative
+# công thức sai số theo 2 xấp xỉ liên tiếp: delta = (max_derivative - min_derivative) / min_derivative * abs(x_next - x_n)
 import math
-import sympy as sp
+import sympy as sp      # thư viện dùng để tính đạo hàm và giải phương trình
 
-def define_functions(expr):
-    x = sp.symbols('x')
-    f = sp.lambdify(x, expr, 'math')
-    df_expr = sp.diff(expr, x)
-    ddf_expr = sp.diff(expr, x, 2)
-    df = sp.lambdify(x, df_expr, 'math')
-    ddf = sp.lambdify(x, ddf_expr, 'math')
+# tính đạo hàm 1 và 2 lần của f rồi chuyển f, f', f'' thành dạng python có thể tính toán
+def define_functions(expr):                  # expr: biểu thức toán học của f(x) được nhập dưới dạng sympy
+    x = sp.symbols('x')                      # khai báo biến x
+    f = sp.lambdify(x, expr, 'math')         # sp.lambdify(x, expr, 'math') chuyển biểu thức expr thành dạng có thể tính toán
+    df_expr = sp.diff(expr, x)               # sp.diff(expr, x) để tính đạo hàm cấp 1
+    ddf_expr = sp.diff(expr, x, 2)           # sp.diff(expr, x, 2) để tính đạo hàm cấp 2
+    df = sp.lambdify(x, df_expr, 'math')     # df là biểu thức của hàm f'(x)
+    ddf = sp.lambdify(x, ddf_expr, 'math')   # ddf là biểu thức của hàm f''(x)
     return f, df, ddf, df_expr
+# f (biểu thức hàm f để tính f(a), f(b), f(d), f(x_n))
+# df và ddf (biểu thức các hàm f' và f'' để kiểm tra điều kiện ban đầu của phương pháp và để tính df(a), ddf(a))
+# df_expr (biểu thức đạo hàm cấp 1 của f, dùng để tính min_derivative và max_derivative)
 
+# xác định dấu của một số, nếu là số âm thì trả về -1, dương thì 1, (= 0) thì return cũng là 0
 def sign(x):
     return (x > 0) - (x < 0)
 
+# tìm min và max của f'(x) trên đoạn [a,b]
 def min_max_derivative(a, b, df_expr):
     x = sp.symbols('x')
-    critical_points = sp.solve(sp.diff(df_expr, x), x)
-    critical_points = [p.evalf() for p in critical_points if p.is_real and a <= p <= b]
-    values = [abs(df_expr.subs(x, p)) for p in critical_points] + [abs(df_expr.subs(x, a)), abs(df_expr.subs(x, b))]
-    min_derivative = min(values)
-    max_derivative = max(values)
+    critical_points = sp.solve(sp.diff(df_expr, x), x)     # giải phương trình f''(x)=0 để tìm các điểm tới hạn (sp.solve(sp.diff(df_expr, x), x))
+    critical_points = [p.evalf() for p in critical_points if p.is_real and a <= p <= b]        # lọc các điểm tới hạn nằm trong đoạn [a,b]
+    values = [abs(df_expr.subs(x, p)) for p in critical_points] + [abs(df_expr.subs(x, a)), abs(df_expr.subs(x, b))]     # tính giá trị đạo hàm tại các điểm tới hạn và tại biên a, b
+    min_derivative = min(values)                   # chọn giá trị nhỏ nhất (min_derivative = m)
+    max_derivative = max(values)                   # chọn giá trị lớn nhất (max_derivative = M)
     return min_derivative, max_derivative
 
 def secant_method(f, df, ddf, df_expr, a, b, error=1e-6, max_iterations=100):
@@ -46,7 +54,11 @@ def secant_method(f, df, ddf, df_expr, a, b, error=1e-6, max_iterations=100):
             raise ValueError("Phép chia cho số rất nhỏ hoặc 0 xảy ra")
         
         x_next = x_n - f(x_n) * (x_n - d) / (f(x_n) - f(d))
-        delta = (max_derivative - min_derivative) / min_derivative * abs(x_next - x_n)
+        
+# ----- chọn công thức sai số ----------------------------------------------------------------------------------------------------------        
+#        delta = (max_derivative - min_derivative) / min_derivative * abs(x_next - x_n)       # công thức sai số theo 2 xấp xỉ liên tiếp
+        delta = abs(f(x_next)) / min_derivative                                              # công thức sai số mục tiêu
+# --------------------------------------------------------------------------------------------------------------------------------------    
         
         print(f"Iteration {count}: d = {d:.10f}, x_0 = {x_n:.10f}, x_n = {x_next:.10f}, delta = {delta:.6e}")
         
