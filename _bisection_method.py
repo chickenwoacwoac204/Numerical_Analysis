@@ -5,7 +5,7 @@ import math
 
 # ----- cần chỉnh sửa tại đây ----------------------------------------------
 def f(x):
-    return math.exp(x) - math.cos(2*x)  # nhập hàm f(x)
+    return x**5 - 0.2*x + 15.0  # nhập hàm f(x)
 
 # ------------- cách chọn hàm f(x) -----------------------------------------
 # tính căn bậc m của n:  chọn f(x) = x**m - n            [do x^m = n]  
@@ -38,7 +38,7 @@ def sign(x):
 
 # Mặc định error = 1e-6 (dùng để tránh lỗi missing item, không cần sửa ở đây);
 # iterations = 0 (đây là số vòng lặp tối đa, nếu đặt = 0 thì sẽ lặp cho đến khi đạt error nhỏ hơn error truyền vào)
-def bisection_method(f, a, b, error=1e-6, iterations=0):
+def bisection_method(f, a, b, error=1e-6, max_iterations=0):
     # bắt lỗi
     if f(a) * f(b) > 0:
         raise ValueError("Không thể dùng phương pháp chia đôi do f(a) f(b) cùng dấu.")
@@ -60,7 +60,7 @@ def bisection_method(f, a, b, error=1e-6, iterations=0):
     
     # điều kiện dừng
     # vòng lặp dừng lặp khi: Sai số delta < error (đạt độ chính xác yêu cầu). Hoặc đã vượt quá số lần lặp iterations
-    while delta >= error and (iterations == 0 or count < iterations):
+    while delta >= error and (max_iterations == 0 or count < max_iterations):
         # Kiểm tra nghiệm chính xác
         if sfm == 0:          # Nếu f(middle)=0 thì middle là nghiệm chính xác => Kết thúc
             return middle
@@ -88,7 +88,7 @@ def bisection_method(f, a, b, error=1e-6, iterations=0):
 # hàm main bọc trong try-except: Nếu đầu vào không hợp lệ, in thông báo lỗi thay vì dừng chương trình đột ngột
 if __name__ == "__main__":
     try:
-        result = bisection_method(f, -1.0, -0.1, 1e-9, 45)   # 1e-7 = 1*10^(-7)
+        result = bisection_method(f, -2, -1, 1e-7, 30)   # 1e-7 = 1*10^(-7)
         print(f"Ket qua: {result:.10f}")
     # bắt lỗi: hàm nhận giá trị đầu vào không hợp lệ nhưng đúng về kiểu dữ liệu
     except ValueError as e:
