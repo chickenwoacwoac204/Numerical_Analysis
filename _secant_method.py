@@ -73,8 +73,8 @@ def secant_method(f, df, ddf, df_expr, a, b, error=1e-6, max_iterations=100):
         x_next = x_n - f(x_n) * (x_n - d) / (f(x_n) - f(d))
         
 # ----- chọn công thức sai số ----------------------------------------------------------------------------------------------------------        
-#        delta = (max_derivative - min_derivative) / min_derivative * abs(x_next - x_n)       # công thức sai số theo 2 xấp xỉ liên tiếp
-        delta = abs(f(x_next)) / min_derivative                                              # công thức sai số mục tiêu
+        delta = (max_derivative - min_derivative) / min_derivative * abs(x_next - x_n)       # công thức sai số theo 2 xấp xỉ liên tiếp
+#        delta = abs(f(x_next)) / min_derivative                                              # công thức sai số mục tiêu
 # --------------------------------------------------------------------------------------------------------------------------------------    
 
         # in output sau mỗi bước lặp; hiển thị tới 10 chữ số thập phân sau dấu phẩy (.10f), delta 6 chữ số thập phân sau dấu phẩy kèm thứ nguyên (.6e)
