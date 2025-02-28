@@ -1,13 +1,17 @@
-# phương pháp chia đôi (sai số tuyệt đối => tiên nghiệm)
-# công thức tiên nghiệm: điều kiện dừng xác định bởi số lần lặp (biến iterations) => ĐỀ BÀI CHO SỐ LẦN LẶP
-# NẾU ĐỀ BÀI Y/C 8 CHỮ SỐ SAU DẤU PHẨY thì epsilon = 0,5*10^-8
-# số lần lặp n <= log_2[(b-a)/epsilon]
+# phương pháp chia đôi (sai số tuyệt đối => tiên nghiệm) (sai số tương đối = sai số tuyệt đối / x)
+# công thức tiên nghiệm: điều kiện dừng xác định bởi số lần lặp (biến iterations)
+# công thức hậu nghiệm: điều kiện dừng xác định bởi sai số cho trước (biến error)
 import math
 
 # ----- cần chỉnh sửa tại đây ----------------------------------------------
 def f(x):
-    return math.tan(x/4) -1  # nhập hàm f(x)
+    return x**2 - 3  # nhập hàm f(x)
+#---------------------------------------------------------------------------
+def delta_choose(a, b, middle):  # chọn loại sai số
+#    return b - a              # sai số tuyệt đối
+    return (b - a) / middle   # sai số tương đối
 # --------------------------------------------------------------------------
+
 
 # ------------- cách chọn hàm f(x) -----------------------------------------
 # tính căn bậc m của n:  chọn f(x) = x**m - n            [do x^m = n]  
@@ -38,55 +42,59 @@ def f(x):
 def sign(x):
     return (x > 0) - (x < 0)
 
-def bisection_method(f, a, b, max_iterations=0):
+# mặc định error = 1e-6 (dùng để tránh lỗi missing item, không cần sửa ở đây)
+# max_iterations = 0 (đây là số vòng lặp tối đa, nếu đặt = 0 thì sẽ lặp cho đến khi đạt error nhỏ hơn error truyền vào)
+def bisection_method(f, a, b, error=1e-6, max_iterations=0):
     # bắt lỗi
     if f(a) * f(b) >= 0:
         raise ValueError("Không thể dùng phương pháp chia đôi do f(a)*f(b) lớn hơn hoặc bằng 0.")
     if a >= b:
         raise ValueError("Hãy nhập a (giá trị nhỏ hơn) trước, rồi nhập b (giá trị lớn hơn) sau.")
+    if error <= 0:
+        raise ValueError("Vui lòng nhập lại sai số, sai số phải là một giá trị dương.")
     
     # khởi tạo các giá trị
     count = 0                                # đếm số vòng lặp
-    x_next = (a + b) * 0.5                   # x_next = x_n+1 là điểm chính giữa a và b
+    middle = (a + b) * 0.5                   # điểm chính giữa a và b
     delta = b - a                            # sai số tuyệt đối
-    sfm = sign(f(x_next))                    # dấu của điểm chính giữa
+    sfm = sign(f(middle))                    # dấu của điểm chính giữa
     sfa = sign(f(a))                         # dấu của f(a)
     
     # in vòng lặp đầu tiên (n=0) với các giá trị khởi tạo
-    # x_n+1 hiển thị tới 10 chữ số thập phân sau dấu phẩy (.10f), delta 6 chữ số thập phân sau dấu phẩy kèm thứ nguyên (.6e)
-    print(f"n = {count}  a_n = {a:.10f}  b_n = {b:.10f}  f(x_n+1)*f(a_n) = {(sfm * sfa):+}  x_n+1 = {x_next:.10f}  delta = {delta:.6e}")
+    # x hiển thị tới 10 chữ số thập phân sau dấu phẩy (.10f), delta 6 chữ số thập phân sau dấu phẩy kèm thứ nguyên (.6e)
+    print(f"n = {count}  a_n = {a:.10f}  b_n = {b:.10f}  f(x_n+1)*f(a_n) = {sfm * sfa}  x_n+1 = {middle:.10f}  delta = {delta:.6e}")
     
     # điều kiện dừng
-    # vòng lặp dừng lặp khi đã vượt quá số lần lặp iterations
-    while max_iterations == 0 or count < max_iterations:
+    # vòng lặp dừng lặp khi: Sai số delta < error (đạt độ chính xác yêu cầu). Hoặc đã vượt quá số lần lặp iterations
+    while delta >= error and (max_iterations == 0 or count < max_iterations):
         # Kiểm tra nghiệm chính xác
-        if sfm == 0:          # Nếu f(x_next)=0 thì x_next là nghiệm chính xác => Kết thúc
-            return x_next
+        if sfm == 0:          # Nếu f(middle)=0 thì middle là nghiệm chính xác => Kết thúc
+            return middle
         # Cập nhật khoảng tìm nghiệm
-        if sfm != sfa:        # Nếu f(x_next) và f(a) khác dấu, thì nghiệm nằm trong khoảng [a, x_next] => cập nhật b = x_next
-            b = x_next
-        else:                 # Nếu f(x_next) và f(a) cùng dấu, nghiệm nằm trong [x_next, b], cập nhật a = x_next
-            a = x_next
+        if sfm != sfa:        # Nếu f(middle) và f(a) khác dấu, thì nghiệm nằm trong khoảng [a, middle] => cập nhật b = middle
+            b = middle
+        else:                 # Nếu f(middle) và f(a) cùng dấu, nghiệm nằm trong [middle, b], cập nhật a = middle
+            a = middle
             sfa = sign(f(a))
         
         # Tính giá trị mới
-        x_next = (a + b) * 0.5
-        sfm = sign(f(x_next))
-        delta = b - a
+        middle = (a + b) * 0.5
+        sfm = sign(f(middle))
+        delta = delta_choose(a, b, middle) 
         count += 1
         
         # in output sau mỗi bước lặp
-        print(f"n = {count}  a_n = {a:.10f}  b_n = {b:.10f}  f(x_n+1)*f(a_n) = {(sfm * sfa):+}  x_n+1 = {x_next:.10f}  delta = {delta:.6e}")
+        print(f"n = {count}  a_n = {a:.10f}  b_n = {b:.10f}  f(x_n+1)*f(a_n) = {sfm * sfa}  x_n+1 = {middle:.10f}  delta = {delta:.6e}")
     
     # Khi vòng lặp kết thúc, trả về nghiệm gần đúng
-    return x_next
+    return middle
 
 
 # ----- cần chỉnh sửa tại đây --------------------------------------------------------------------------------
 # hàm main bọc trong try-except: Nếu đầu vào không hợp lệ, in thông báo lỗi thay vì dừng chương trình đột ngột
 if __name__ == "__main__":
     try:
-        result = bisection_method(f, 3, 3.3, 15)   # nhập khoảng cách ly nghiệm lần lượt là a, b và số lần lặp tối đa
+        result = bisection_method(f, 1, 2, 5e-7, 40)   # nhập khoảng cách ly nghiệm lần lượt là a và b, sai số [1e-7 = 1*10^(-7)] và số lần lặp tối đa
         print(f"Nghiệm gần đúng: {result:.10f}")
     # bắt lỗi: hàm nhận giá trị đầu vào không hợp lệ nhưng đúng về kiểu dữ liệu
     except ValueError as e:

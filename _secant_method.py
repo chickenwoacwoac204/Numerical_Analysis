@@ -106,8 +106,8 @@ if __name__ == "__main__":
 # ------------- cách chọn hàm f(x) -----------------------------------------
 # tính căn bậc m của n:  chọn f(x) = x**m - n            [do x^m = n]  
 # tính logarit của m cơ số n:  chọn f(x) = m**x - n      [do log_m(n) = ln(n) / ln(m)]
-# tính số e:  chọn f(x) = math.log(x) - 1                [do  ln(e) - 1 = 0]
-# tính số pi:  chọn f(x) = math.tan(x/4) - 1             [do tan(x/4) = 1]
+# tính số e:  chọn f(x) = math.log(x) - 1                [do  ln(e) - 1 = 0]               [hàm ln(x) đạo hàm = 1/x]
+# tính số pi:  chọn f(x) = math.tan(x/4) - 1             [do tan(x/4) = 1]                 [hàm tan(x) đạo hàm = 1/(cos(x))^2]
 
 # ------------- cú pháp python ----------------------------------------------
 # hàm đa thức: x**5 - 0.2*x + 15.0         [x**5 = x^5]
