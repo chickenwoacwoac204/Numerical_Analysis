@@ -147,7 +147,8 @@ def bisection_method(f, a, b, error = 1e-6, mode = 0):
 # Hàm main để chạy chương trình
 if __name__ == "__main__":
     try:
-        result = bisection_method(f, 1, 2, 1e-7, mode = 3)     # nhập khoảng cách li a, b, epsilon và chọn mode
+        
+        result = bisection_method(f, a = 1, b = 2, error = 1e-7, mode = 3)     # nhập khoảng cách li a, b, epsilon và chọn mode
     except ValueError as e:
         print(f"Error: {e}")
 
