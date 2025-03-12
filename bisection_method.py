@@ -1,9 +1,9 @@
 # phương pháp chia đôi
-# nhập hàm f(x) => chọn mode ở line 160 (công thức sai số + loại sai số (tương đối/tuyệt đối))
+# nhập hàm f(x) => chọn mode ở line 150 (công thức sai số + loại sai số (tương đối/tuyệt đối))
 # công thức hậu nghiệm: điều kiện dừng xác định bởi sai số cho trước (biến error)
 # công thức tiên nghiệm: điều kiện dừng xác định bởi số lần lặp (biến iterations)
-# NẾU ĐỀ BÀI CHO SỐ LẦN LẶP THÌ SỬA LINE 88
-# NẾU ĐỀ BÀI Y/C 8 CHỮ SỐ SAU DẤU PHẨY thì epsilon = 0,5*10^-8 => ĐIỀN VÀO ERROR Ở LINE 160
+# NẾU ĐỀ BÀI CHO SỐ LẦN LẶP n THÌ TÍNH ERROR BẰNG CÔNG THỨC (b-a)/2^n 
+# NẾU ĐỀ BÀI Y/C 8 CHỮ SỐ SAU DẤU PHẨY thì epsilon = 0,5*10^-8 => ĐIỀN VÀO ERROR Ở LINE 150
 # số lần lặp n <= log_2[(b-a)/epsilon]
 import math
 
@@ -40,7 +40,8 @@ def sign(x):
     return (x > 0) - (x < 0)
 
 # Hàm tìm nghiệm bằng phương pháp chia đôi
-def bisection_method(f, a, b, error=1e-6, mode=0):
+# các giá trị error và mode ở đây được set mặc định, khi gọi hàm sẽ được ghi đè
+def bisection_method(f, a, b, error = 1e-6, mode = 0):
     # Ánh xạ giá trị mode với phương thức và loại sai số
     mode_map = {
         0: ("a_priori", "relative"),   # Tiên nghiệm + Sai số tương đối
@@ -67,64 +68,66 @@ def bisection_method(f, a, b, error=1e-6, mode=0):
     # Khởi tạo biến
     count = 0  # Đếm số lần lặp
     x_next = (a + b) * 0.5  # Điểm giữa khoảng hiện tại
-    prev_x = None  # Lưu giá trị nghiệm của lần lặp trước
+    prev_x = float('inf')  # Lưu giá trị nghiệm của lần lặp trước (giá trị mặc định ban đầu là lớn)
     delta = float('inf')  # Sai số ban đầu lớn để đảm bảo vòng lặp chạy ít nhất một lần
     sfm = sign(f(x_next))  # Dấu của f(x_next)
-    sfa = sign(f(a))  # Dấu của f(a)
-    
-    # Biến đánh dấu nghiệm đã được tìm thấy
-    solution_found = False
-    extra_iterations = 0
-    max_extra_iterations = 2  # Số vòng lặp thêm sau khi tìm được nghiệm
+    sfa = sign(f(a))  # Dấu của f(a)               
     
     # Biến lưu trữ thông tin nghiệm thỏa mãn đầu tiên
-    solution_iter = 0
-    solution_x = None
-    solution_delta = None
-    
-    # Xác định số lần lặp tối đa hoặc điều kiện dừng
-    if method == "a_priori":                                          # Tiên nghiệm: chỉ dừng theo số lần lặp
-        max_iterations = math.ceil(math.log2((b - a) / error)) + 1    # Dùng math.ceil để làm tròn số vòng lặp lên và cộng thêm 1 lần lặp sau kết quả 
-#        max_iterations = 17                                          # Nếu đề bài yêu cầu 18 lần lặp thì nhập vào 19 và lấy kết quả ở lần 18
-    else:
-        max_iterations = float('inf')  # Hậu nghiệm: chỉ dừng khi sai số đạt yêu cầu
+    solution_found = False         # đánh dấu nghiệm đã được tìm thấy
+    solution_iter = 0              # lưu lại n tại kết quả
+    solution_x = None              # lưu lại x_n+1 tại kết quả
+    solution_delta = None          # lưu lại delta tại kết quả
     
     # In thông tin phương pháp đang sử dụng
     print(f"Chia đôi - {'Tiên nghiệm' if method == 'a_priori' else 'Hậu nghiệm'} - {'Sai số tương đối' if error_type == 'relative' else 'Sai số tuyệt đối'}")
     
-    # In tiêu đề bảng kết quả
-    print(f"{'n':<5}{'a_n':<15}{'b_n':<15}{'f(a_n)*f(x_n+1)':<20}{'x_n+1':<15}{'delta rela' if error_type == 'relative' else 'delta abs'}")
+    # In tiêu đề bảng
+    print(f"{'n':<5} {'a_n':<15} {'b_n':<15} {'f(a_n)*f(x_n+1)':<20} {'x_n+1':<15} {'delta rela' if error_type == 'relative' else 'delta abs'}")
     
     # Vòng lặp chính
-    while ((method == "a_priori" and count < max_iterations) or 
-          (method == "a_posteriori" and (not solution_found or extra_iterations < max_extra_iterations))):
-        prev_x = x_next  # Lưu giá trị x_n+1 của lần lặp trước
-        
-        # Hiển thị dấu + hoặc - thay vì giá trị số
-        sign_product = "+" if (sfm * sfa) > 0 else "-"
-        
-        # In kết quả mỗi bước lặp
-        print(f"{count:<5}{a:<15.10f}{b:<15.10f}{sign_product:<20}{x_next:<15.10f}{delta:.6e}")
+    while True:
+        if solution_found:
+            # Hiển thị kết quả khi đạt được độ chính xác yêu cầu
+# dòng này hiện đang hiển thị bị lệch sang kết quả khác đằng sau kết quả đúng            
+#            print(f"Nghiệm gần đúng tại n = {solution_iter}: x_{solution_iter+1} = {prev_x:.10f} với sai số {'tương đối' if error_type == 'relative' else 'tuyệt đối'} là {solution_delta:.6e} < {error} thỏa mãn")
+            break
         
         # Nếu tìm được nghiệm chính xác (f(x_next) = 0)
         if sfm == 0:
-            if not solution_found:
-                solution_found = True
-                solution_iter = count + 1    # do tại lần lặp thứ n có được x_n+1
-                solution_x = x_next
-                solution_delta = 0  # Đây là nghiệm chính xác
-            extra_iterations += 1
-        
-        # Kiểm tra điều kiện hội tụ cho phương pháp hậu nghiệm
-        if method == "a_posteriori" and delta < error and not solution_found:
             solution_found = True
-            solution_iter = count + 1    # do tại lần lặp thứ n có được x_n+1
+            solution_iter = count  
+            solution_x = x_next
+            solution_delta = 0
+            
+            # Hiển thị khi tìm thấy nghiệm chính xác
+            print(f"Tìm thấy nghiệm chính xác tại n = {count}: x_{count+1} = {x_next:.10f} với f(x_{count+1}) = 0")
+            break  # Dừng ngay lập tức khi tìm thấy nghiệm chính xác
+        
+        if delta < error:
+            solution_found = True
+            solution_iter = count
             solution_x = x_next
             solution_delta = delta
+            
+        if method == "a_priori":                                  # tiên nghiệm
+            if error_type == "absolute":    # sai số tuyệt đối
+                delta = abs(b - a)
+            else:                           # sai số tương đối
+                delta = abs(b - a) / abs(x_next)
+                
+        elif method == "a_posteriori":                            # hậu nghiệm
+            if error_type == "absolute":    # sai số tuyệt đối
+                delta = abs(x_next - prev_x)
+            else:                           # sai số tương đối
+                delta = abs(x_next - prev_x) / abs(x_next) if x_next != 0 else abs(x_next - prev_x)
+                
         
-        # Nếu đã tìm thấy nghiệm, đếm số vòng lặp bổ sung
-        if solution_found:
-            extra_iterations += 1
+        sign_product = "+" if (sfm * sfa) > 0 else "-"     # Hiển thị dấu + hoặc - thay vì giá trị số
+        print(f"{count:<5} {a:<15.10f} {b:<15.10f} {sign_product:<20} {x_next:<15.10f} {delta:.6e}")   # in vòng lặp
+            
+        # Lưu giá trị x_n+1 của lần lặp trước
+        prev_x = x_next
         
         # Cập nhật khoảng chứa nghiệm
         if sfm != sfa:
@@ -132,31 +135,19 @@ def bisection_method(f, a, b, error=1e-6, mode=0):
         else:
             a = x_next  # Nghiệm nằm trong [x_next, b]
             sfa = sign(f(a))
-        
+            
         # Tính giá trị mới
         x_next = (a + b) * 0.5
         sfm = sign(f(x_next))
-        
-        # Tính sai số
-        if prev_x is not None:
-            if error_type == "absolute":
-                delta = (b - a)
-            else:  # relative error
-                delta = abs(x_next - prev_x) / abs(x_next) if x_next != 0 else abs(x_next - prev_x)
-        
-        count += 1  # Tăng số lần lặp
-    
-    # In kết quả cuối cùng
-        print(f"Nghiệm gần đúng tại n = {solution_iter - 1}: x_{solution_iter} = {solution_x:.10f} với sai số {'tương đối' if error_type == 'relative' else 'tuyệt đối'} là {solution_delta:.6e} < {error} thỏa mãn")
-    else:
-        print(f"Nghiệm gần đúng tại : x_{count} = {x_next:.10f}")
-    
-    return x_next if not solution_found else solution_x  # Trả về nghiệm gần đúng
+        count += 1  # Tăng số lần lặp 
+                              
+    # Trả về nghiệm tìm được
+    return solution_x
 
 # Hàm main để chạy chương trình
 if __name__ == "__main__":
     try:
-        result = bisection_method(f, 1, 2, 1e-7, mode = 0)     # nhập khoảng cách li a, b, epsilon và chọn mode
+        result = bisection_method(f, 1, 2, 1e-7, mode = 3)     # nhập khoảng cách li a, b, epsilon và chọn mode
     except ValueError as e:
         print(f"Error: {e}")
 
