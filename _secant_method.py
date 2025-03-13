@@ -446,7 +446,7 @@ def secant_method(f, df, ddf, df_expr, a, b, error=1e-6, max_iterations=100, mod
 
 # hàm main bọc trong try-except: Nếu đầu vào không hợp lệ, in thông báo lỗi thay vì dừng chương trình đột ngột
 if __name__ == "__main__":
-    expr = sp.sympify('x**5 - 0.2*x + 15.0')        # nhập hàm f(x)
+    expr = sp.sympify('x**5 - 7')        # nhập hàm f(x)
     f, df, ddf, df_expr = define_functions(expr)
     
     print("Phương pháp dây cung với các chế độ đánh giá sai số:")
@@ -456,7 +456,7 @@ if __name__ == "__main__":
     print("Mode 3: Sai số tương đối theo công thức 2 xấp xỉ liên tiếp")
     
     try:
-        result = secant_method(f, df, ddf, df_expr, a = -2.0, b = -1.0, error = 1e-7, mode = 0, extra_iteration = 1)  # extra_iteration để thêm 1 vòng lặp sau khi tìm được kết quả
+        result = secant_method(f, df, ddf, df_expr, a = 1.0, b = 2.0, error = 1e-7, mode = 0, extra_iteration = 1)  # extra_iteration để thêm 1 vòng lặp sau khi tìm được kết quả
         print(f"Nghiệm gần đúng: {result:.10f}")
         print(f"Giá trị hàm tại nghiệm: f({result:.10f}) = {f(result):.10e}")
     # bắt lỗi: hàm nhận giá trị đầu vào không hợp lệ nhưng đúng về kiểu dữ liệu
