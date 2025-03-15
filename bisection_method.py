@@ -154,11 +154,11 @@ if __name__ == "__main__":
         print(f"Error: {e}")
 
     # Tạo mảng giá trị x từ -3 đến 3 với 400 điểm
-    x = np.linspace(-3, 3, 400)
-    y = f(x)  # Tính giá trị của hàm tại các điểm x
+    x_values = np.linspace(-3, 3, 400)
+    y_values = f(x_values)  # Tính giá trị của hàm tại các điểm x
 
     # Vẽ đồ thị
-    plt.plot(x, y, label=r"$f(x) = e^x + cos(2x)$", color="b")
+    plt.plot(x_values, y_values, label=r"$f(x) = e^x + cos(2x)$", color="b")
     plt.axhline(0, color='black', linewidth=0.5)  # Trục Ox
     plt.axvline(0, color='black', linewidth=0.5)  # Trục Oy
     plt.grid(True, linestyle="--", alpha=0.6)  # Lưới
