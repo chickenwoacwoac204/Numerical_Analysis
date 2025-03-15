@@ -174,10 +174,11 @@ def secant_method(f, df, ddf, df_expr, a, b, error=1e-6, max_iterations=100, mod
 
 # hàm main bọc trong try-except: Nếu đầu vào không hợp lệ, in thông báo lỗi thay vì dừng chương trình đột ngột
 if __name__ == "__main__":
-    expr = sp.sympify('x**5 - 7')        # nhập hàm f(x)
+    x = sp.symbols('x')
+    expr = sp.sympify('tan(x/4) - 1')  # nhập hàm f(x)
     f, df, ddf, df_expr = define_functions(expr) 
     try:
-        result = secant_method(f, df, ddf, df_expr, a = 1.0, b = 2.0, error = 1e-7, mode = 0, extra_iteration = 1)  # extra_iteration để thêm 1 vòng lặp sau khi tìm được kết quả
+        result = secant_method(f, df, ddf, df_expr, a = 3, b = 3.2, error = 1e-7, mode = 0, extra_iteration = 1)  # extra_iteration để thêm 1 vòng lặp sau khi tìm được kết quả
         print(f"Nghiệm gần đúng: {result:.10f}")
         print(f"Giá trị hàm tại nghiệm: f({result:.10f}) = {f(result):.10e}")
     # bắt lỗi: hàm nhận giá trị đầu vào không hợp lệ nhưng đúng về kiểu dữ liệu
@@ -195,15 +196,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Tạo mảng giá trị x từ a đến b với 1000 điểm
-x_values = np.linspace(-2, 3, 1000)
+x_values = np.linspace(-10, 10, 1000)
 y_values = [f(x) for x in x_values]
 
 # Vẽ đồ thị
 #plt.figure(figsize=(8, 6))
-plt.plot(x_values, y_values, label="f(x) = x^5 - 7", color="blue")  # Đường cong f(x)
+plt.plot(x_values, y_values, label="f(x) = tan(x/4) - 1", color="blue")  # Đường cong f(x)
 plt.axhline(0, color='black', linewidth=0.5)  # Trục Ox
 plt.axvline(0, color='black', linewidth=0.5)  # Trục Oy
-plt.axvline(result, color='red', linestyle="--", label=f"Nghiệm x ≈ {result:.6f}")  # Đánh dấu nghiệm
+#plt.axvline(result, color='red', linestyle="--", label=f"Nghiệm x ≈ {result:.6f}")  # Đánh dấu nghiệm
 
 # Thiết lập nhãn và tiêu đề
 plt.xlabel("x")
