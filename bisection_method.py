@@ -5,10 +5,12 @@
 # NẾU ĐỀ BÀI CHO SỐ LẦN LẶP n THÌ TÍNH ERROR BẰNG CÔNG THỨC (b-a)/2^n 
 # NẾU ĐỀ BÀI Y/C 8 CHỮ SỐ SAU DẤU PHẨY thì epsilon = 0,5*10^-8 => ĐIỀN VÀO ERROR Ở LINE 150
 # số lần lặp n <= log_2[(b-a)/epsilon]
-import math
+#import math
+import matplotlib.pyplot as plt
+import numpy as np
 
 def f(x):
-    return x**5 - 7  
+    return np.exp(x) + np.cos(2*x)  
 
 # ------------- cách chọn hàm f(x) -----------------------------------------
 # tính căn bậc m của n:  chọn f(x) = x**m - n            [do x^m = n]  
@@ -37,7 +39,7 @@ def f(x):
 
 # Hàm xác định dấu của một số (-1 nếu âm, 1 nếu dương, 0 nếu bằng 0)
 def sign(x):
-    return (x > 0) - (x < 0)
+    return np.sign(x)       # là (x > 0) - (x < 0) nếu sử dụng math
 
 # Hàm tìm nghiệm bằng phương pháp chia đôi
 # các giá trị error và mode ở đây được set mặc định, khi gọi hàm sẽ được ghi đè
@@ -147,10 +149,29 @@ def bisection_method(f, a, b, error = 1e-6, mode = 0):
 # Hàm main để chạy chương trình
 if __name__ == "__main__":
     try:
-        
-        result = bisection_method(f, a = 1, b = 2, error = 1e-7, mode = 3)     # nhập khoảng cách li a, b, epsilon và chọn mode
+        result = bisection_method(f, a = -3, b = -2, error = 1e-8, mode = 3)     # nhập khoảng cách li a, b, epsilon và chọn mode
     except ValueError as e:
         print(f"Error: {e}")
+
+    # Tạo mảng giá trị x từ -3 đến 3 với 400 điểm
+    x = np.linspace(-3, 3, 400)
+    y = f(x)  # Tính giá trị của hàm tại các điểm x
+
+    # Vẽ đồ thị
+    plt.plot(x, y, label=r"$f(x) = e^x + cos(2x)$", color="b")
+    plt.axhline(0, color='black', linewidth=0.5)  # Trục Ox
+    plt.axvline(0, color='black', linewidth=0.5)  # Trục Oy
+    plt.grid(True, linestyle="--", alpha=0.6)  # Lưới
+
+    # Hiển thị nhãn trục
+    plt.xlabel("x")
+    plt.ylabel("f(x)")
+    plt.title("Đồ thị hàm số f(x)")
+    plt.legend()
+
+    # Hiển thị đồ thị
+    plt.show()
+
 
 # MODE:
 # 0 --- Tiên nghiệm + Sai số tương đối
