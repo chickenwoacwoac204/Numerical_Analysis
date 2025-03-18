@@ -168,7 +168,7 @@ def secant_method(f, df, ddf, a, b, error=1e-6, max_iterations=100, mode=1, extr
 # hàm main bọc trong try-except: Nếu đầu vào không hợp lệ, in thông báo lỗi thay vì dừng chương trình đột ngột
 if __name__ == "__main__":
     # Nhập hàm f với cú pháp của sympy
-    f_expr = "x**5 - 7"  
+    f_expr = "2**x - 5*x + sin(x)"  
     global f_sym  # Khai báo f_sym là biến toàn cục để sử dụng trong secant_method
     f_sym, f, df, ddf = define_functions(f_expr)
 #MODE:
@@ -178,7 +178,7 @@ if __name__ == "__main__":
 # 3: sai số tương đối theo công thức 2 xấp xỉ liên tiếp: delta = (max_derivative - min_derivative) / min_derivative * abs(x_next - x_n) / abs(x_next)
 
     try:
-        result = secant_method(f, df, ddf, a=1, b=2, error=5e-8, mode=1, extra_iteration=True)
+        result = secant_method(f, df, ddf, a=0, b=1, error=5e-4, mode=1, extra_iteration=True)
         print(f"Nghiệm gần đúng: {result:.10f}")
         print(f"Giá trị hàm tại nghiệm: f({result:.10f}) = {f(result):.10e}")
 

@@ -79,11 +79,11 @@ def newton_method(f, df, ddf, a, b, error=1e-6, max_iterations=100, mode=1, extr
     raise ValueError("Phương pháp không hội tụ sau số lần lặp tối đa.")
 
 if __name__ == "__main__":
-    f_expr = "exp(-x) - x"
+    f_expr = "2**x - 5*x + sin(x)"
     f_sym, f, df, ddf = define_functions(f_expr)
     
     try:
-        result = newton_method(f, df, ddf, a=1, b=1, error=5e-4, mode=2, extra_iteration=True)
+        result = newton_method(f, df, ddf, a=0, b=1, error=5e-4, mode=2, extra_iteration=True)
         print(f"Nghiệm gần đúng: {result:.10f}")
         print(f"Giá trị hàm tại nghiệm: f({result:.10f}) = {f(result):.10e}")
         
