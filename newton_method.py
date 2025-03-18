@@ -79,16 +79,16 @@ def newton_method(f, df, ddf, a, b, error=1e-6, max_iterations=100, mode=1, extr
     raise ValueError("Phương pháp không hội tụ sau số lần lặp tối đa.")
 
 if __name__ == "__main__":
-    f_expr = "x**5 - 7"
+    f_expr = "exp(-x) - x"
     f_sym, f, df, ddf = define_functions(f_expr)
     
     try:
-        result = newton_method(f, df, ddf, a=1, b=2, error=5e-8, mode=1, extra_iteration=True)
+        result = newton_method(f, df, ddf, a=1, b=1, error=5e-4, mode=2, extra_iteration=True)
         print(f"Nghiệm gần đúng: {result:.10f}")
         print(f"Giá trị hàm tại nghiệm: f({result:.10f}) = {f(result):.10e}")
         
         # Vẽ đồ thị
-        x_values = np.linspace(-4, 3, 1000)
+        x_values = np.linspace(-3, 3, 1000)
         y_values = [f(x) for x in x_values]
 
         plt.plot(x_values, y_values, label=f"f(x) = {f_expr}", color="blue")
