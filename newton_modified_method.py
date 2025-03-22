@@ -57,6 +57,6 @@ else:
     max_iter = 50
     tol = float(choice) if choice else 1e-6
 
-# Gọi hàm giải hệ phương trình
+# gọi hàm giải hệ phương trình
 solution = modified_simple_iteration(F_exprs, vars_list, X0, tol, max_iter)
 print("\nFinal Solution:", solution)
