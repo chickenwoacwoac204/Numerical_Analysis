@@ -142,8 +142,38 @@ def secant_method(f, df, ddf, a, b, error=1e-6, max_iterations=100, mode=1, extr
             delta = abs(f(x_next)) / (min_derivative * abs(x_next))
         else:
             delta = (max_derivative - min_derivative) / min_derivative * abs(x_next - x_n) / abs(x_next)
+        
+#______________________________________________________format cách hiển thị kết quả_____________________________________________________
 
-        print(f"Iteration {count}: d = {d:.10f}, x_n  = {x_n:.10f}, x_n+1 = {x_next:.10f}, delta = {delta:.6e}")
+        # Định nghĩa tên cột sai số theo mode
+        delta_names = {
+            0: "|f(x_n+1)|/m",
+            1: "(M-m)/m * |x_n+1 - x_n|",
+            2: "|f(x_n+1)|/(m*|x_n+1|)",
+            3: "(M-m)/m * |x_n+1 - x_n|/|x_n+1|"
+        }
+
+        # In tiêu đề bảng (chỉ in ở lần lặp đầu tiên)
+        if count == 0:
+            if mode in [0, 2]:
+                print(f"{'n':<6} | {'x_n+1':<15} | {'|f(x_n+1)|':<15} | {delta_names[mode]:<20}")
+                print("-" * 60)
+            else:  # mode 1, 3
+                print(f"{'n':<6} | {'x_n+1':<15} | {'|x_n+1 - x_n|':<15} | {delta_names[mode]:<20}")
+                print("-" * 60)
+
+        # Tính giá trị cột thay đổi
+        if mode in [0, 2]:
+            col_value = abs(f(x_next))
+            col_format = f"{col_value:<15.6e}"
+        else:  # mode 1, 3
+            col_value = abs(x_next - x_n)
+            col_format = f"{col_value:<15.6e}"
+
+        # In dòng dữ liệu
+        print(f"{count:<6} | {x_next:<15.6f} | {col_format} | {delta:<20.6e}")
+        
+#______________________________________________________format cách hiển thị kết quả_____________________________________________________
 
         if delta < error and not solution_found:
             solution_found = True
@@ -168,7 +198,7 @@ def secant_method(f, df, ddf, a, b, error=1e-6, max_iterations=100, mode=1, extr
 # hàm main bọc trong try-except: Nếu đầu vào không hợp lệ, in thông báo lỗi thay vì dừng chương trình đột ngột
 if __name__ == "__main__":
     # Nhập hàm f với cú pháp của sympy
-    f_expr = "2**x - 5*x + sin(x)"  
+    f_expr = "x**5 - 7"  
     global f_sym  # Khai báo f_sym là biến toàn cục để sử dụng trong secant_method
     f_sym, f, df, ddf = define_functions(f_expr)
 #MODE:
@@ -178,7 +208,7 @@ if __name__ == "__main__":
 # 3: sai số tương đối theo công thức 2 xấp xỉ liên tiếp: delta = (max_derivative - min_derivative) / min_derivative * abs(x_next - x_n) / abs(x_next)
 
     try:
-        result = secant_method(f, df, ddf, a=0, b=1, error=5e-4, mode=1, extra_iteration=True)
+        result = secant_method(f, df, ddf, a = 1, b = 2, error = 5e-8, mode = 2, extra_iteration = True)
         print(f"Nghiệm gần đúng: {result:.10f}")
         print(f"Giá trị hàm tại nghiệm: f({result:.10f}) = {f(result):.10e}")
 
