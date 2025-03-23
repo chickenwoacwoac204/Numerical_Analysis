@@ -267,14 +267,19 @@ def fixed_point_iteration(f_sym, f, phi_expr, a, b, error=1e-8, q=None, max_iter
 #--------------------------------------------------------- NHẬP f, phi_sym và a, b, error, q ----------------------------------------------------------
 if __name__ == "__main__":
 
-    f_expr = "x**5 -17*x +2"
+    f_expr = "exp(x) - 10*x + 7"
     f_sym, f = define_functions(f_expr)
-    phi_expr = "(x**5 + 2)/17"
+    phi_expr = "log(10*x - 7)"
     
     try:
-        result = fixed_point_iteration(f_sym, f, phi_expr, a=0, b=1, error=1e-10, q=5/17, mode=0, max_iterations=1000, extra_iteration=True)
+        result = fixed_point_iteration(f_sym, f, phi_expr, a=3.2, b=3.3, error=5e-8, q=0.4, mode=1, max_iterations=1000, extra_iteration=True)
         print(f"Nghiệm gần đúng: {result:.10f}")
         
+# mode 0: tuyệt đối, tiên nghiệm: (q^n * |x_n - x_n-1|) / (1 - q)
+# mode 1: tuyệt đối, hậu nghiệm: (q * |x_n - x_n-1|) / (1 - q)
+# mode 2: tương đối, tiên nghiệm: [(q^n * |x_n - x_n-1|) / (1 - q)] / |x_n|
+# mode 3: tương đối, hậu nghiệm: [(q * |x_n - x_n-1|) / (1 - q)] / |x_n|
+
         try:
             f_result = f(result)
             print(f"Giá trị hàm tại nghiệm: f({result:.10f}) = {f_result:.10e}")
