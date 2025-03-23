@@ -15,7 +15,7 @@
         numpy.ndarray: Nghiệm cuối cùng nếu hội tụ, hoặc giá trị cuối cùng nếu không hội tụ.
     
     Raises:
-        ValueError: Nếu biến vượt miền xác định hoặc phương pháp không hợp lệ.
+        ValueError: Nếu biến vượt miền xác định, phương pháp không hợp lệ, Jacobian suy biến, hoặc nghiệm phát tán.
 """
 # ------------- Cú pháp SymPy và miền xác định ----------------------------------------------
 # Hàm đa thức: 
@@ -61,132 +61,135 @@
 # - Nếu giá trị vượt ra ngoài miền xác định (VD: sqrt(-1), asin(2)), có thể gây lỗi nan hoặc ValueError.
 # ------------------------------------------------------------------------------------------------------------
 
-import numpy as np  # Thư viện hỗ trợ tính toán số học và ma trận
-from sympy import symbols, Matrix, lambdify  # Thư viện SymPy cho biểu thức tượng trưng và Jacobian
-from sympy import cos, sin, exp, asin, acos, atan  # Các hàm SymPy: lượng giác, mũ, lượng giác ngược
+import numpy as np
+from sympy import symbols, Matrix, lambdify
+from sympy import cos, sin, exp
 
 def newton_solver(F_expressions, variables, X0, method="newton", tol=1e-6, max_iter=50):
-    n = len(variables)  # Số biến trong hệ (kích thước của hệ phương trình)
-    F = Matrix(F_expressions)  # Chuyển danh sách biểu thức thành ma trận SymPy (vector F(x))
-    J = F.jacobian(variables)  # Tính ma trận Jacobian (ma trận đạo hàm riêng bậc một của F)
+    n = len(variables)
+    F = Matrix(F_expressions)
+    J = F.jacobian(variables)
     
-    # Chuyển đổi biểu thức SymPy thành hàm numpy để tính toán số
-    F_func = lambdify(variables, F, 'numpy')  # Hàm F(x) dạng numpy
-    J_func = lambdify(variables, J, 'numpy')  # Hàm Jacobian J(x) dạng numpy
+    F_func = lambdify(variables, F, 'numpy')
+    J_func = lambdify(variables, J, 'numpy')
     
-    X = np.array(X0, dtype=float)  # Chuyển X0 thành mảng numpy kiểu float để tính toán
+    X = np.array(X0, dtype=float)
     
-    # Nếu dùng Newton Modified, tính nghịch đảo Jacobian tại X0 một lần và giữ cố định
     if method == "modified":
-        J_inv_fixed = np.linalg.inv(J_func(*X0))  # Nghịch đảo Jacobian tại X0
+        J_at_X0 = J_func(*X0)
+        if np.abs(np.linalg.det(J_at_X0)) < 1e-10:
+            raise ValueError("Jacobian at X0 is singular (not invertible). Try a different initial guess or use Newton method.")
+        J_inv_fixed = np.linalg.inv(J_at_X0)
     
     # Định dạng tiêu đề bảng
-    headers = ["Iteration"] + [f"x{i+1}" for i in range(n)] + ["Max Error"]  # Tiêu đề cột
-    col_width_iter = 10  # Độ rộng cột Iteration
-    col_width_val = 15   # Độ rộng cột x_i (đủ cho 10 chữ số thập phân)
-    col_width_error = 15 # Độ rộng cột Max Error (đủ cho dạng khoa học .6e)
-    total_width = col_width_iter + n * col_width_val + col_width_error + (n + 2)  # Tổng chiều rộng bảng
-    print("-" * total_width)  # In đường kẻ ngang đầu bảng
-    print(f"|{headers[0]:^{col_width_iter}}|", end="")  # In tiêu đề Iteration, căn giữa
+    headers = ["Iteration"] + [f"x{i+1}" for i in range(n)] + [f"F{i+1}" for i in range(n)] + ["Max Error", "det(J(X_n))"]
+    col_width_iter = 10
+    col_width_val = 15
+    col_width_error = 15
+    col_width_det = 15  # Độ rộng cột det(J(X_n))
+    total_width = col_width_iter + 2 * n * col_width_val + col_width_error + col_width_det + (2 * n + 3)
+    print("-" * total_width)
+    print(f"|{headers[0]:^{col_width_iter}}|", end="")
     for i in range(1, n+1):
-        print(f"{headers[i]:^{col_width_val}}|", end="")  # In tiêu đề x_i, căn giữa
-    print(f"{headers[n+1]:^{col_width_error}}|")  # In tiêu đề Max Error, căn giữa
-    print("-" * total_width)  # In đường kẻ ngang sau tiêu đề
+        print(f"{headers[i]:^{col_width_val}}|", end="")
+    for i in range(n+1, 2*n+1):
+        print(f"{headers[i]:^{col_width_val}}|", end="")
+    print(f"{headers[2*n+1]:^{col_width_error}}|", end="")
+    print(f"{headers[2*n+2]:^{col_width_det}}|")
+    print("-" * total_width)
     
-    # Vòng lặp chính của phương pháp Newton
     for k in range(max_iter):
-        # Kiểm tra miền xác định cho hàm lượng giác ngược (asin, acos yêu cầu x trong [-1, 1])
-        if any('asin' in str(expr) or 'acos' in str(expr) for expr in F_expressions):
-            if any(abs(x) > 1 for x in X):
-                raise ValueError("Variable out of domain [-1, 1] for arcsin or arccos")
+        # Kiểm tra miền xác định cho exp
+        if any('exp' in str(expr) for expr in F_expressions):
+            for i, expr in enumerate(F_expressions):
+                if 'exp' in str(expr):
+                    if 'x1*x2' in str(expr):
+                        arg = -X[0] * X[1]
+                        if arg < -100:
+                            raise ValueError(f"Iteration {k+1}: Argument of exp in equation {i+1} too negative ({arg}), may cause divergence.")
+
+        F_val = np.array(F_func(*X), dtype=float).flatten()
         
-        # Kiểm tra miền xác định cho số mũ nhỏ hơn 1 (yêu cầu x >= 0 để tránh nan trong số thực)
-        if any('**' in str(expr) for expr in F_expressions):
-            for expr in F_expressions:
-                if '**' in str(expr):
-                    exponent = str(expr).split('**')[1].split()[0]  # Lấy số mũ từ biểu thức
-                    try:
-                        if float(exponent) < 1 and any(x < 0 for x in X):
-                            raise ValueError("Variable became negative with fractional exponent < 1")
-                    except ValueError:  # Nếu không phân tích được số mũ (ví dụ biểu thức phức tạp)
-                        pass  # Bỏ qua kiểm tra này
-        
-        # Tính giá trị hàm F tại X hiện tại
-        F_val = np.array(F_func(*X), dtype=float).flatten()  # Giá trị F(X) dạng mảng 1D
-        
-        # Chọn phương pháp dựa trên tham số method
         if method == "newton":
-            J_current = J_func(*X)  # Tính Jacobian tại X hiện tại
-            J_inv = np.linalg.inv(J_current)  # Tính nghịch đảo Jacobian tại mỗi bước
+            J_current = J_func(*X)
+            if np.abs(np.linalg.det(J_current)) < 1e-10:
+                raise ValueError(f"Jacobian at iteration {k+1} is singular (not invertible).")
+            J_inv = np.linalg.inv(J_current)
         elif method == "modified":
-            J_inv = J_inv_fixed  # Dùng Jacobian cố định từ X0
+            J_inv = J_inv_fixed
+            J_current = J_func(*X)  # Vẫn tính J(X_n) để hiển thị det(J(X_n))
         else:
-            raise ValueError("Method must be 'newton' or 'modified'")  # Lỗi nếu method không hợp lệ
+            raise ValueError("Method must be 'newton' or 'modified'")
         
-        # Công thức lặp Newton: X_new = X - J^{-1} * F(X)
-        X_new = X - J_inv @ F_val  # Cập nhật X mới (@ là phép nhân ma trận)
-        error = np.abs(X_new - X)  # Tính sai số tuyệt đối giữa X mới và X cũ
+        X_new = X - J_inv @ F_val
+        error = np.abs(X_new - X)
         
-        # In dòng kết quả
-        print(f"|{k+1:^{col_width_iter}}|", end="")  # In số lần lặp, căn giữa
+        # Kiểm tra nan hoặc inf
+        if np.any(np.isnan(X_new)) or np.any(np.isinf(X_new)):
+            print("-" * total_width)
+            raise ValueError(f"Iteration {k+1}: Solution diverged (nan or inf encountered).")
+        
+        # Kiểm tra phát tán sớm
+        if error.max() > 1e3:
+            print("-" * total_width)
+            raise ValueError(f"Iteration {k+1}: Solution diverging (Max Error = {error.max():.6e} too large).")
+        
+        # Tính F(X_new) và det(J(X_n))
+        F_new = np.array(F_func(*X_new), dtype=float).flatten()
+        det_J = np.linalg.det(J_current)
+        
+        print(f"|{k+1:^{col_width_iter}}|", end="")
         for x in X_new:
-            print(f"{x:^{col_width_val}.10f}|", end="")  # In nghiệm x_i với 10 chữ số thập phân
-        print(f"{error.max():^{col_width_error}.6e}|")  # In Max Error dạng khoa học .6e
+            print(f"{x:^{col_width_val}.10f}|", end="")
+        for f in F_new:
+            print(f"{f:^{col_width_val}.6e}|", end="")
+        print(f"{error.max():^{col_width_error}.6e}|", end="")
+        print(f"{det_J:^{col_width_det}.6e}|")
         
-        # Kiểm tra điều kiện hội tụ: tất cả sai số nhỏ hơn tol
         if np.all(error < tol):
-            print("-" * total_width)  # In đường kẻ ngang cuối bảng
-            print(f"\nConverged using {method} method!")  # Thông báo hội tụ
-            return X_new  # Trả về nghiệm cuối cùng
+            print("-" * total_width)
+            print(f"\nConverged using {method} method!")
+            return X_new
         
-        X = X_new  # Cập nhật X cho bước lặp tiếp theo
+        X = X_new
     
-    # Nếu vượt quá max_iter
-    print("-" * total_width)  # In đường kẻ ngang cuối bảng
-    print(f"\nMax iterations reached with {method} method.")  # Thông báo không hội tụ
-    return X  # Trả về giá trị cuối cùng
+    print("-" * total_width)
+    print(f"\nMax iterations reached with {method} method.")
+    return X
 
 if __name__ == "__main__":
-    # Nhập số biến từ người dùng
-    n = int(input("Enter the number of variables: "))  # Số lượng biến (kích thước hệ)
-    vars_list = symbols(f'x1:{n+1}')  # Tạo danh sách biến tượng trưng x1, x2, ..., xn
+    n = int(input("Enter the number of variables: "))
+    vars_list = symbols(f'x1:{n+1}')
 
-    # Nhập hệ phương trình phi tuyến
-    F_exprs = []  # Danh sách lưu các biểu thức phương trình
+    F_exprs = []
     print("Enter the equations (in terms of x1, x2, ..., xn):")
     for i in range(n):
-        # Dùng eval để chuyển chuỗi nhập thành biểu thức SymPy
-        # Kết hợp globals() với biến tượng trưng để hỗ trợ các hàm như sin, cos, exp
         F_exprs.append(eval(input(f"Equation {i+1}: "), {**{str(v): v for v in vars_list}, **globals()}))
 
-    # Nhập giá trị khởi tạo X0
-    X0 = list(map(float, input("Enter initial values (space-separated): ").split()))  # Chuyển chuỗi thành list float
+    X0 = list(map(float, input("Enter initial values (space-separated): ").split()))
 
-    # Nhập sai số hoặc số lần lặp tối đa
     choice = input("Enter tolerance (default 1e-6) or max iterations: ")
     if choice.isdigit():
-        max_iter = int(choice)  # Nếu nhập số nguyên, coi đó là max_iter
-        tol = 1e-6  # Sai số mặc định
+        max_iter = int(choice)
+        tol = 1e-6
     else:
-        max_iter = 50  # Số lần lặp tối đa mặc định
-        tol = float(choice) if choice else 1e-6  # Nếu nhập số thực, dùng làm tol; nếu rỗng, dùng 1e-6
+        max_iter = 50
+        tol = float(choice) if choice else 1e-6
 
-    # Chọn phương pháp
-    method = input("Choose method ('newton' or 'modified'): ").strip().lower()  # Nhập phương pháp, chuẩn hóa chữ thường
+    method = input("Choose method ('newton' or 'modified'): ").strip().lower()
     if method not in ["newton", "modified"]:
-        print("Invalid method! Defaulting to 'newton'.")  # Thông báo nếu nhập sai
-        method = "newton"  # Mặc định là Newton cổ điển
+        print("Invalid method! Defaulting to 'newton'.")
+        method = "newton"
 
-    # Gọi hàm giải hệ phương trình
     solution = newton_solver(F_exprs, vars_list, X0, method, tol, max_iter)
-    print("\nFinal Solution:", solution)  # In nghiệm cuối cùng
-
-
-#------------------ Input ví dụ --------------------    
-# Enter the number of variables: 2
-# Enter the equations (in terms of x1, x2, ...):
-# Equation 1: sin(x1) + x2 - 1
-# Equation 2: x1 - x2**2
-# Enter initial values (space-separated): 1 1
-# Enter tolerance (default 1e-6) or max iterations: 
+    print("\nFinal Solution:", solution)
+    
+# input ví dụ
+# Enter the number of variables: 3
+# Enter the equations (in terms of x1, x2, ..., xn):
+# Equation 1: 3*x1 - cos(x2*x3) - 0.5
+# Equation 2: 4*x1**2 - 625*x2**2 + 2*x2 - 1
+# Equation 3: exp(-x1*x2) + 20*x3 + (10*3.1415926536)/3 - 1
+# Enter initial values (space-separated): 0 0 0
+# Enter tolerance (default 1e-6) or max iterations: 6
 # Choose method ('newton' or 'modified'): newton
