@@ -1,21 +1,28 @@
 # LƯU Ý: CHỌN MÔI TRƯỜNG PYTHON ĐÚNG ĐỂ DÙNG ĐƯỢC THƯ VIỆN SYMPY: CTRL + SHIFT + P => SELECT INTERPRETER => PYTHON 3.12.9 ('BASE') LƯU Ở MINICONDA
 
 """
-    Giải hệ phương trình phi tuyến bằng phương pháp Newton cổ điển hoặc Newton Modified.
+    Giải hệ phương trình phi tuyến bằng các phương pháp Newton, Newton Modified, hoặc Lặp đơn.
     
     Args:
-        F_expressions (list): Danh sách các biểu thức phi tuyến (SymPy).
+        F_expressions (list): Danh sách các biểu thức phi tuyến (SymPy) của F(X) = 0.
         variables (list): Danh sách biến tượng trưng (x1, x2, ...).
         X0 (list): Vectơ giá trị khởi tạo.
-        method (str): "newton" (cập nhật Jacobian mỗi bước) hoặc "modified" (Jacobian cố định), mặc định "newton".
+        mode (int): Chế độ tính toán (0-5):
+            - 0: Newton với sai số tuyệt đối
+            - 1: Newton với sai số tương đối
+            - 2: Newton Modified với sai số tuyệt đối
+            - 3: Newton Modified với sai số tương đối
+            - 4: Lặp đơn với sai số tuyệt đối
+            - 5: Lặp đơn với sai số tương đối
         tol (float): Sai số cho phép, mặc định 1e-6.
         max_iter (int): Số lần lặp tối đa, mặc định 50.
+        G_expressions (list, optional): Danh sách biểu thức G(X) cho lặp đơn (X = G(X)). Nếu None, cố gắng tự động biến đổi.
     
     Returns:
         numpy.ndarray: Nghiệm cuối cùng nếu hội tụ, hoặc giá trị cuối cùng nếu không hội tụ.
     
     Raises:
-        ValueError: Nếu biến vượt miền xác định, phương pháp không hợp lệ, Jacobian suy biến, hoặc nghiệm phát tán.
+        ValueError: Nếu biến vượt miền xác định, mode không hợp lệ, Jacobian suy biến, hoặc nghiệm phát tán.
 """
 # ------------- Cú pháp SymPy và miền xác định ----------------------------------------------
 # Hàm đa thức: 
@@ -62,16 +69,39 @@
 # ------------------------------------------------------------------------------------------------------------
 
 import numpy as np
-from sympy import symbols, Matrix, lambdify
+from sympy import symbols, Matrix, lambdify, sqrt
 from sympy import cos, sin, exp
 
-def newton_solver(F_expressions, variables, X0, method="newton", tol=1e-6, max_iter=50):
+def newton_solver(F_expressions, variables, X0, mode=0, tol=1e-6, max_iter=50, G_expressions=None):
     n = len(variables)
     F = Matrix(F_expressions)
     J = F.jacobian(variables)
     
     F_func = lambdify(variables, F, 'numpy')
     J_func = lambdify(variables, J, 'numpy')
+    
+    # Xác định phương pháp và loại sai số từ mode
+    if mode not in range(6):
+        raise ValueError("Mode must be an integer from 0 to 5.")
+    
+    method_dict = {0: "newton", 1: "newton", 2: "modified", 3: "modified", 4: "fixed_point", 5: "fixed_point"}
+    error_type_dict = {0: "absolute", 1: "relative", 2: "absolute", 3: "relative", 4: "absolute", 5: "relative"}
+    
+    method = method_dict[mode]
+    error_type = error_type_dict[mode]
+    
+    # Chuẩn bị cho lặp đơn
+    if method == "fixed_point":
+        if G_expressions is None:
+            G_expressions = []
+            for i, expr in enumerate(F_expressions):
+                try:
+                    g_expr = (expr + variables[i]).simplify()
+                    G_expressions.append(g_expr)
+                except:
+                    raise ValueError(f"Cannot automatically transform equation {i+1} into X = G(X) form. Please provide G_expressions.")
+        G = Matrix(G_expressions)
+        G_func = lambdify(variables, G, 'numpy')
     
     X = np.array(X0, dtype=float)
     
@@ -86,7 +116,7 @@ def newton_solver(F_expressions, variables, X0, method="newton", tol=1e-6, max_i
     col_width_iter = 10
     col_width_val = 15
     col_width_error = 15
-    col_width_det = 15  # Độ rộng cột det(J(X_n))
+    col_width_det = 15
     total_width = col_width_iter + 2 * n * col_width_val + col_width_error + col_width_det + (2 * n + 3)
     print("-" * total_width)
     print(f"|{headers[0]:^{col_width_iter}}|", end="")
@@ -110,19 +140,31 @@ def newton_solver(F_expressions, variables, X0, method="newton", tol=1e-6, max_i
 
         F_val = np.array(F_func(*X), dtype=float).flatten()
         
-        if method == "newton":
+        if method in ["newton", "modified"]:
+            if method == "newton":
+                J_current = J_func(*X)
+                if np.abs(np.linalg.det(J_current)) < 1e-10:
+                    raise ValueError(f"Jacobian at iteration {k+1} is singular (not invertible).")
+                J_inv = np.linalg.inv(J_current)
+            else:
+                J_inv = J_inv_fixed
+                J_current = J_func(*X)
+            X_new = X - J_inv @ F_val
+        elif method == "fixed_point":
+            X_new = np.array(G_func(*X), dtype=float).flatten()
             J_current = J_func(*X)
-            if np.abs(np.linalg.det(J_current)) < 1e-10:
-                raise ValueError(f"Jacobian at iteration {k+1} is singular (not invertible).")
-            J_inv = np.linalg.inv(J_current)
-        elif method == "modified":
-            J_inv = J_inv_fixed
-            J_current = J_func(*X)  # Vẫn tính J(X_n) để hiển thị det(J(X_n))
         else:
-            raise ValueError("Method must be 'newton' or 'modified'")
+            raise ValueError("Method must be 'newton', 'modified', or 'fixed_point'")
         
-        X_new = X - J_inv @ F_val
-        error = np.abs(X_new - X)
+        # Tính sai số
+        abs_error = np.abs(X_new - X)
+        if error_type == "absolute":
+            error = abs_error
+        else:  # relative error
+            # Tránh chia cho 0: nếu |X_new| quá nhỏ, dùng sai số tuyệt đối
+            X_new_norm = np.abs(X_new)
+            X_new_norm = np.where(X_new_norm < 1e-10, 1.0, X_new_norm)  # Thay thế giá trị nhỏ bằng 1
+            error = abs_error / X_new_norm
         
         # Kiểm tra nan hoặc inf
         if np.any(np.isnan(X_new)) or np.any(np.isinf(X_new)):
@@ -148,27 +190,30 @@ def newton_solver(F_expressions, variables, X0, method="newton", tol=1e-6, max_i
         
         if np.all(error < tol):
             print("-" * total_width)
-            print(f"\nConverged using {method} method!")
+            method_name = "Newton" if method == "newton" else "Newton Modified" if method == "modified" else "Fixed-Point"
+            print(f"\nConverged using {method_name} method with {error_type} error!")
             return X_new
         
         X = X_new
     
     print("-" * total_width)
-    print(f"\nMax iterations reached with {method} method.")
+    method_name = "Newton" if method == "newton" else "Newton Modified" if method == "modified" else "Fixed-Point"
+    print(f"\nMax iterations reached with {method_name} method and {error_type} error.")
     return X
 
 if __name__ == "__main__":
-    n = int(input("Enter the number of variables: "))
+    """Hàm chính để nhập dữ liệu từ người dùng và chạy phương pháp."""
+    n = int(input("Nhập số lượng biến: "))
     vars_list = symbols(f'x1:{n+1}')
 
     F_exprs = []
-    print("Enter the equations (in terms of x1, x2, ..., xn):")
+    print("Nhập các phương trình F(X) = 0 (theo dạng x1, x2, ..., xn):")
     for i in range(n):
-        F_exprs.append(eval(input(f"Equation {i+1}: "), {**{str(v): v for v in vars_list}, **globals()}))
+        F_exprs.append(eval(input(f"Phương trình {i+1}: "), {**{str(v): v for v in vars_list}, **globals()}))
 
-    X0 = list(map(float, input("Enter initial values (space-separated): ").split()))
+    X0 = list(map(float, input("Nhập giá trị ban đầu (cách nhau bởi dấu cách): ").split()))
 
-    choice = input("Enter tolerance (default 1e-6) or max iterations: ")
+    choice = input("Nhập sai số cho phép (mặc định 1e-6) hoặc số lần lặp tối đa: ")
     if choice.isdigit():
         max_iter = int(choice)
         tol = 1e-6
@@ -176,14 +221,34 @@ if __name__ == "__main__":
         max_iter = 50
         tol = float(choice) if choice else 1e-6
 
-    method = input("Choose method ('newton' or 'modified'): ").strip().lower()
-    if method not in ["newton", "modified"]:
-        print("Invalid method! Defaulting to 'newton'.")
-        method = "newton"
+    print("Chọn chế độ tính toán (0-5):")
+    print("0: Newton với sai số tuyệt đối")
+    print("1: Newton với sai số tương đối")
+    print("2: Newton Modified với sai số tuyệt đối")
+    print("3: Newton Modified với sai số tương đối")
+    print("4: Lặp đơn với sai số tuyệt đối")
+    print("5: Lặp đơn với sai số tương đối")
+    mode = int(input("Nhập chế độ: "))
 
-    solution = newton_solver(F_exprs, vars_list, X0, method, tol, max_iter)
-    print("\nFinal Solution:", solution)
-    
+    G_exprs = None
+    if mode in [4, 5]:  # Fixed-Point modes
+        print("Nhập các phương trình X = G(X) cho phương pháp lặp đơn (hoặc nhấn Enter để tự động biến đổi):")
+        G_exprs = []
+        for i in range(n):
+            g_input = input(f"G{i+1}(x1, x2, ..., xn) = ").strip()
+            if g_input:
+                G_exprs.append(eval(g_input, {**{str(v): v for v in vars_list}, **globals()}))
+            else:
+                G_exprs = None
+                break
+
+    solution = newton_solver(F_exprs, vars_list, X0, mode, tol, max_iter, G_exprs)
+    print("\nNghiệm cuối cùng:", solution)
+
+# ------------- Cú pháp SymPy và miền xác định ----------------------------------------------
+# Hàm đa thức: 
+# - Ví dụ: x
+
 # input ví dụ
 # Enter the number of variables: 3
 # Enter the equations (in terms of x1, x2, ..., xn):
