@@ -54,7 +54,7 @@ class PolynomialSolver:
         """
         mode_map = {
             0: ("a_priori", "relative"),
-            1: ("a_priori", "absolute"), 
+            1: ("a_priori", "absolute"),
             2: ("a_posteriori", "relative"),
             3: ("a_posteriori", "absolute")
         }
@@ -120,7 +120,7 @@ class PolynomialSolver:
                 b = x_next
             else:
                 a = x_next
-                sfa = self.sign(f(a))
+            sfa = self.sign(f(a))
             
             x_next = (a + b) * 0.5
             sfm = self.sign(f(x_next))
@@ -128,72 +128,98 @@ class PolynomialSolver:
         
         return solution_x, intermediate_data
 
-    def find_isolated_intervals(self, epsilon, max_iter, mode="absolute", initial_step=None):
+    def find_isolated_intervals(self, epsilon, max_iter, mode="absolute", initial_step=None, a=None, b=None):
         """
-        Tìm khoảng phân ly nghiệm
+        Tìm khoảng phân ly nghiệm với kiểm tra điểm đặc biệt
+        """
+        if a is None or b is None:
+            R = self.cauchy_bound()
+            left, right = -R, R
+        else:
+            left, right = a, b
         
-        Args:
-            epsilon: Sai số cho phép
-            max_iter: Số lần lặp tối đa
-            mode: Loại sai số ("absolute" hoặc "relative")
-            initial_step: Độ dài đoạn chia ban đầu (mặc định là epsilon)
-            
-        Returns:
-            intervals: Danh sách các khoảng phân ly nghiệm
-            intermediate_data: Dữ liệu trung gian trong quá trình tính
-        """
-        R = self.cauchy_bound()
         intervals = []
         intermediate_data = []
         
-        # Sử dụng epsilon làm độ dài đoạn chia nếu initial_step không được chỉ định
+        # Tạo lưới điểm mịn hơn
         step = initial_step if initial_step is not None else epsilon
+        min_step = min((right - left)/200, epsilon/10)  # Tăng độ mịn của lưới
+        step = min(step, min_step)
         
-        # Đảm bảo step không quá lớn
-        if step > R/5:
-            step = R/5
-        
-        x = -R
+        # Tạo lưới điểm cơ bản
         points = []
-        while x <= R:
+        x = left
+        while x <= right:
             points.append(x)
             x += step
         
         # Thêm điểm cuối nếu cần
-        if points[-1] < R:
-            points.append(R)
+        if points[-1] < right:
+            points.append(right)
         
+        # Thêm các điểm đặc biệt
+        special_points = set([left, right])
+        
+        # Tính các hệ số đạo hàm
+        deriv1_coeffs = self.derivative()
+        if len(deriv1_coeffs) > 1:  # Nếu đạo hàm không phải hằng số
+            deriv2_coeffs = PolynomialSolver(deriv1_coeffs).derivative()
+            if len(deriv2_coeffs) > 1:  # Nếu đạo hàm bậc 2 không phải hằng số
+                # Thêm các điểm chia đều trong khoảng để kiểm tra dấu
+                num_check_points = 50  # Số điểm kiểm tra
+                check_points = np.linspace(left, right, num_check_points)
+                
+                # Kiểm tra đổi dấu của đạo hàm bậc 2
+                for i in range(len(check_points) - 1):
+                    x1, x2 = check_points[i], check_points[i + 1]
+                    d2_x1 = PolynomialSolver(deriv2_coeffs).evaluate_polynomial(x1)
+                    d2_x2 = PolynomialSolver(deriv2_coeffs).evaluate_polynomial(x2)
+                    if d2_x1 * d2_x2 <= 0:  # Có điểm uốn
+                        mid = (x1 + x2) / 2
+                        special_points.add(mid)
+        
+        # Thêm các điểm đặc biệt vào lưới điểm
+        points.extend(special_points)
+        points = sorted(list(set(points)))  # Loại bỏ trùng lặp và sắp xếp
+        
+        # Tìm khoảng phân ly
         for i in range(len(points) - 1):
             x1, x2 = points[i], points[i + 1]
             p1 = self.evaluate_polynomial(x1)
             p2 = self.evaluate_polynomial(x2)
             
-            if p1 * p2 < 0:
+            if p1 * p2 < 0:  # Dấu hiệu có nghiệm
                 interval_data = []
                 iteration = 0
+                current_x1, current_x2 = x1, x2
+                current_p1, current_p2 = p1, p2
+                
                 while iteration < max_iter:
-                    length = x2 - x1
-                    mid = (x1 + x2) / 2
+                    length = current_x2 - current_x1
+                    mid = (current_x1 + current_x2) / 2
                     p_mid = self.evaluate_polynomial(mid)
-                    interval_data.append([iteration + 1, x1, x2, mid, p1, p_mid, p2, length])
+                    interval_data.append([iteration + 1, current_x1, current_x2, mid, 
+                                       current_p1, p_mid, current_p2, length])
                     
+                    # Kiểm tra điều kiện dừng
                     if mode == "absolute":
                         if length < epsilon:
-                            intervals.append((x1, x2))
+                            intervals.append((current_x1, current_x2))
                             intermediate_data.append(interval_data)
                             break
-                    else:
-                        if length / abs(mid) < epsilon and mid != 0:
-                            intervals.append((x1, x2))
-                            intermediate_data.append(interval_data)
-                            break
+                        else:  # relative
+                            if length / abs(mid) < epsilon and mid != 0:
+                                intervals.append((current_x1, current_x2))
+                                intermediate_data.append(interval_data)
+                                break
                     
-                    if p1 * p_mid < 0:
-                        x2 = mid
-                        p2 = p_mid
+                    # Thu hẹp khoảng
+                    if current_p1 * p_mid < 0:
+                        current_x2 = mid
+                        current_p2 = p_mid
                     else:
-                        x1 = mid
-                        p1 = p_mid
+                        current_x1 = mid
+                        current_p1 = p_mid
                     iteration += 1
         
         return intervals, intermediate_data
@@ -242,63 +268,63 @@ class PolynomialSolver:
         
         return roots, all_intermediate_data, isolation_data
 
-    def find_extrema(self, a, b, epsilon, max_iter, mode="absolute", use_absolute=False):
+    def find_extrema(self, a, b, epsilon_isolation, epsilon_root, max_iter, mode="absolute", use_absolute=False):
         """
-        Tìm cực trị của hàm
+        Tìm cực trị của hàm số trong khoảng [a, b] bằng cách tìm nghiệm của đạo hàm
         
         Args:
             a, b: Khoảng tìm cực trị
-            epsilon: Sai số cho phép
+            epsilon_isolation: Sai số cho việc tìm khoảng phân ly
+            epsilon_root: Sai số cho việc tìm nghiệm chính xác
             max_iter: Số lần lặp tối đa
-            mode: Loại sai số ("absolute" hoặc "relative")
-            use_absolute: Có tìm cực trị của |f(x)| không
-            
-        Returns:
-            min_val, max_val: Giá trị cực tiểu và cực đại
-            intermediate_values: Giá trị tại các điểm đặc biệt
-            intermediate_data_intervals: Dữ liệu trung gian khi tìm khoảng phân ly
-            all_intermediate_data: Dữ liệu trung gian khi tìm điểm cực trị
-            roots: Các nghiệm của f(x) = 0
-            roots_intermediate_data: Dữ liệu trung gian khi tìm nghiệm
+            mode: "absolute" hoặc "relative" - chế độ tính sai số
+            use_absolute: True nếu tìm cực trị của |f(x)|, False nếu tìm của f(x)
         """
-        deriv_solver = PolynomialSolver(self.derivative())
+        # Kiểm tra trường hợp đặc biệt: đa thức bậc 0 hoặc 1
+        if len(self.coeffs) <= 2:
+            f_a = self.evaluate_polynomial(a)
+            f_b = self.evaluate_polynomial(b)
+            if use_absolute:
+                f_a, f_b = abs(f_a), abs(f_b)
+            return min(f_a, f_b), max(f_a, f_b), [[a, f_a, abs(f_a) if use_absolute else f_a], 
+                                                 [b, f_b, abs(f_b) if use_absolute else f_b]], [], [], [], []
+
+        # Tính đạo hàm
+        deriv_coeffs = self.derivative()
+        deriv_solver = PolynomialSolver(deriv_coeffs)
         
-        intervals, intermediate_data_intervals = deriv_solver.find_isolated_intervals(epsilon, max_iter, mode)
-        critical_points = []
-        all_intermediate_data = []
+        # Tìm nghiệm của đạo hàm (điểm cực trị) bằng mode 2-3
+        critical_points, critical_data, isolation_data = deriv_solver.find_real_roots(
+            epsilon_isolation,
+            epsilon_root,
+            max_iter,
+            mode,
+            initial_step=min((b-a)/10, epsilon_isolation)
+        )
         
-        bisection_mode = 3 if mode == "absolute" else 2
+        # Thêm điểm đầu và cuối khoảng
+        points = [a] + critical_points + [b]
+        points = sorted(list(set(points)))  # Loại bỏ điểm trùng lặp
         
-        for x1, x2 in intervals:
-            if x1 < a or x2 > b:
-                continue
-            point, intermediate_data = deriv_solver.bisection_method(x1, x2, epsilon, max_iter, bisection_mode)
-            if point is not None:
-                critical_points.append(point)
-                all_intermediate_data.append((point, intermediate_data))
-        
-        roots, roots_intermediate_data = self.find_real_roots(epsilon, max_iter, mode)
-        roots = [root for root in roots if a <= root <= b]
-        
-        points = [a, b] + critical_points + roots
-        points = sorted(list(set(points)))
-        
-        intermediate_values = []
+        # Tính giá trị tại các điểm
+        values = []
         for x in points:
             f_x = self.evaluate_polynomial(x)
             value = abs(f_x) if use_absolute else f_x
-            intermediate_values.append([x, f_x, value])
+            values.append([x, f_x, value])
         
-        values = [abs(self.evaluate_polynomial(x)) if use_absolute else self.evaluate_polynomial(x) for x in points]
-        max_val = max(values)
-        min_val = min(values)
+        if not values:
+            return None, None, [], [], [], [], []
         
-        return min_val, max_val, intermediate_values, intermediate_data_intervals, all_intermediate_data, roots, roots_intermediate_data
+        # Tìm max, min
+        min_val = min(v[2] for v in values)
+        max_val = max(v[2] for v in values)
+        
+        return min_val, max_val, values, isolation_data, critical_data, [], []
 
     def plot_results(self, a, b, mode_choice, roots=None, critical_points=None, min_val=None, max_val=None):
         """
         Vẽ đồ thị kết quả
-        
         Args:
             a, b: Khoảng vẽ đồ thị
             mode_choice: Chế độ tính toán (0-7)
@@ -315,6 +341,11 @@ class PolynomialSolver:
         plt.figure(figsize=(10, 6))
         plt.plot(x, y, 'b-', label='f(x)')
         
+        # Vẽ |f(x)| cho mode 6-7
+        if mode_choice in [6, 7]:
+            y_abs = np.abs(y)
+            plt.plot(x, y_abs, 'r-', label='|f(x)|')
+        
         # Vẽ trục tọa độ
         plt.axhline(y=0, color='k', linestyle='-', alpha=0.3)
         plt.axvline(x=0, color='k', linestyle='-', alpha=0.3)
@@ -324,15 +355,11 @@ class PolynomialSolver:
         plt.axvline(x=b, color='g', linestyle='--', alpha=0.5, label='x = b')
         
         # Vẽ các điểm đặc biệt
-        if mode_choice in [0, 1]:  # Khoảng phân ly nghiệm
+        if mode_choice in [0, 1, 2, 3]:  # Nghiệm
             if roots:
                 for root in roots:
                     plt.plot([root], [0], 'ro', label='Nghiệm')
-        elif mode_choice in [2, 3]:  # Nghiệm thực
-            if roots:
-                for root in roots:
-                    plt.plot([root], [0], 'ro', label='Nghiệm')
-        elif mode_choice in [4, 5, 6, 7]:  # Cực trị
+        elif mode_choice in [4, 5]:  # Cực trị của f(x)
             if critical_points:
                 for point in critical_points:
                     y_val = self.evaluate_polynomial(point)
@@ -340,12 +367,21 @@ class PolynomialSolver:
             if min_val is not None and max_val is not None:
                 plt.axhline(y=min_val, color='r', linestyle='--', alpha=0.5, label='Min')
                 plt.axhline(y=max_val, color='r', linestyle='--', alpha=0.5, label='Max')
+        else:  # Mode 6-7: Cực trị của |f(x)|
+            if critical_points:
+                for point in critical_points:
+                    y_val = self.evaluate_polynomial(point)
+                    plt.plot([point], [y_val], 'go', label='f(x)')
+                    plt.plot([point], [abs(y_val)], 'ro', label='|f(x)|')
+            if min_val is not None and max_val is not None:
+                plt.axhline(y=min_val, color='r', linestyle='--', alpha=0.5, label='Min |f(x)|')
+                plt.axhline(y=max_val, color='r', linestyle='--', alpha=0.5, label='Max |f(x)|')
         
         # Cấu hình đồ thị
         plt.grid(True, alpha=0.3)
-        plt.title('Đồ thị hàm số f(x)')
+        plt.title('Đồ thị hàm số' + (' và trị tuyệt đối' if mode_choice in [6, 7] else ''))
         plt.xlabel('x')
-        plt.ylabel('f(x)')
+        plt.ylabel('y')
         
         # Xử lý chồng lặp nhãn trong legend
         handles, labels = plt.gca().get_legend_handles_labels()
@@ -392,7 +428,7 @@ class PolynomialIO:
             header_line += f" {header:^{width}} |"
         print(header_line)
         print("-" * len(header_line))
-        
+    
         # In dữ liệu
         for row in data:
             line = "|"
@@ -428,6 +464,48 @@ class PolynomialIO:
             return "0"
         result = "".join(terms)
         return result[1:] if result[0] == '+' else result
+
+def print_root_finding_results(roots, all_intermediate_data, isolation_data, epsilon_isolation, epsilon_root, mode, function_name="f(x)"):
+    """
+    In kết quả trung gian của quá trình tìm nghiệm
+    Args:
+        roots: danh sách nghiệm
+        all_intermediate_data: dữ liệu trung gian tìm nghiệm
+        isolation_data: dữ liệu trung gian tìm khoảng phân ly
+        epsilon_isolation: sai số khoảng phân ly
+        epsilon_root: sai số nghiệm
+        mode: chế độ tính sai số
+        function_name: tên hàm số (f(x) hoặc f'(x))
+    """
+    # In kết quả tìm khoảng phân ly
+    print(f"\n=== Kết luận về khoảng phân ly nghiệm của {function_name} ===")
+    if not isolation_data:
+        print(f"Không tìm thấy khoảng phân ly nghiệm nào của {function_name} trong khoảng đã cho.")
+    else:
+        print(f"Tìm thấy {len(isolation_data)} khoảng phân ly nghiệm:")
+        headers = ["Lần lặp", "x1", "x2", "Mid", f"{function_name}(x1)", 
+                  f"{function_name}(Mid)", f"{function_name}(x2)", "Độ dài"]
+        for i, interval_data in enumerate(isolation_data):
+            print(f"\nKhoảng phân ly {i+1}:")
+            PolynomialIO.print_table(headers, interval_data)
+            last_data = interval_data[-1]
+            x1, x2 = last_data[1], last_data[2]
+            length = last_data[-1]
+            print(f"Kết luận: Tồn tại duy nhất một nghiệm của {function_name} trong [{x1:.6f}, {x2:.6f}]")
+            print(f"Sai số tìm khoảng phân ly: {length:.6e} < {epsilon_isolation:.6e}")
+
+    # In kết quả tìm nghiệm chính xác
+    print(f"\n=== Kết quả tìm nghiệm chính xác của {function_name} ===")
+    if not roots:
+        print(f"Không tìm được nghiệm thực nào của {function_name} trong các khoảng phân ly.")
+    else:
+        headers = ["Lần lặp", "a", "b", f"{function_name}(a)*{function_name}(Mid)", "Mid", "Sai số"]
+        for i, (root, intermediate_data) in enumerate(all_intermediate_data):
+            print(f"\nNghiệm {i+1}: {root:.6f}")
+            PolynomialIO.print_table(headers, intermediate_data)
+            last_data = intermediate_data[-1]
+            error = last_data[-1]
+            print(f"Sai số {'tương đối' if mode == 'relative' else 'tuyệt đối'}: {error:.6e} < {epsilon_root:.6e}")
 
 def main():
     """Hàm chính để chạy chương trình"""
@@ -492,7 +570,7 @@ def main():
             except ValueError:
                 print("Vui lòng nhập một số nguyên từ 0 đến 7.")
         
-        if mode_choice in [2, 3]:
+        if mode_choice in [2, 3, 4, 5]:  # Mode 2-3-4-5
             print("\nNhập sai số cho việc tìm khoảng phân ly (epsilon_0):")
             epsilon_isolation = float(input())
             while epsilon_isolation <= 0:
@@ -504,54 +582,45 @@ def main():
             while epsilon_root <= 0:
                 print("Sai số phải dương. Vui lòng nhập lại:")
                 epsilon_root = float(input())
-                
-            print("\nBạn có muốn tùy chỉnh độ dài đoạn chia ban đầu không? (y/n):")
-            customize_step = input().lower() == 'y'
-            initial_step = None
-            if customize_step:
-                print("Nhập độ dài đoạn chia ban đầu (để trống để sử dụng epsilon_0):")
-                step_input = input()
-                if step_input:
-                    initial_step = float(step_input)
-                    while initial_step <= 0:
-                        print("Độ dài đoạn chia phải dương. Vui lòng nhập lại:")
-                        initial_step = float(input())
-        else:
-            print("\nNhập sai số epsilon:")
-            epsilon = float(input())
-            while epsilon <= 0:
+
+        elif mode_choice in [6, 7]:  # Mode 6, 7: Tìm max, min của |f(x)|
+            print("\nNhập sai số cho việc tìm khoảng phân ly của f'(x) (epsilon_0):")
+            epsilon_isolation = float(input())
+            while epsilon_isolation <= 0:
                 print("Sai số phải dương. Vui lòng nhập lại:")
-                epsilon = float(input())
-            
-            print("\nBạn có muốn tùy chỉnh độ dài đoạn chia ban đầu không? (y/n):")
-            customize_step = input().lower() == 'y'
-            initial_step = None
-            if customize_step:
-                print("Nhập độ dài đoạn chia ban đầu (để trống để sử dụng epsilon):")
-                step_input = input()
-                if step_input:
-                    initial_step = float(step_input)
-                    while initial_step <= 0:
-                        print("Độ dài đoạn chia phải dương. Vui lòng nhập lại:")
-                        initial_step = float(input())
+                epsilon_isolation = float(input())
                 
+            print("\nNhập sai số cho việc tìm nghiệm của f'(x) (epsilon_1):")
+            epsilon_root = float(input())
+            while epsilon_root <= 0:
+                print("Sai số phải dương. Vui lòng nhập lại:")
+                epsilon_root = float(input())
+                
+            print("\nNhập sai số cho việc tìm nghiệm của f(x) (epsilon_2):")
+            epsilon_zero = float(input())
+            while epsilon_zero <= 0:
+                print("Sai số phải dương. Vui lòng nhập lại:")
+                epsilon_zero = float(input())
+
         print("\nNhập số lần lặp tối đa:")
         max_iter = int(input())
         while max_iter <= 0:
             print("Số lần lặp phải dương. Vui lòng nhập lại:")
             max_iter = int(input())
-        
+    
         # In đầu vào
         print("\n=== Đầu vào ===")
         print(f"Đa thức: f(x) = {PolynomialIO.print_polynomial(coeffs)}")
         print(f"Khoảng [a, b]: [{a}, {b}]")
-        if mode_choice in [2, 3]:
+        if mode_choice in [2, 3, 4, 5]:  # Mode 2-3-4-5
             print(f"Sai số tìm khoảng phân ly (epsilon_0): {epsilon_isolation}")
             print(f"Sai số tìm nghiệm chính xác (epsilon_1): {epsilon_root}")
-        else:
-            print(f"Sai số epsilon: {epsilon}")
+        elif mode_choice in [6, 7]:  # Mode 6-7
+            print(f"Sai số tìm khoảng phân ly của f'(x) (epsilon_0): {epsilon_isolation}")
+            print(f"Sai số tìm nghiệm của f'(x) (epsilon_1): {epsilon_root}")
+            print(f"Sai số tìm nghiệm của f(x) (epsilon_2): {epsilon_zero}")
         print(f"Số lần lặp tối đa: {max_iter}")
-        
+    
         # Xác định mode
         mode = "absolute" if mode_choice in [0, 3, 5, 7] else "relative"
         use_absolute = mode_choice in [6, 7]
@@ -562,32 +631,17 @@ def main():
                 print("\n=== Phương pháp sử dụng ===")
                 print(f"Tìm khoảng phân ly nghiệm - Sai số {'tuyệt đối' if mode == 'absolute' else 'tương đối'}")
                 
-                intervals, intermediate_data = PolynomialSolver(coeffs).find_isolated_intervals(
-                    epsilon, 
+                intervals, isolation_data = PolynomialSolver(coeffs).find_isolated_intervals(
+                    epsilon_isolation, 
                     max_iter, 
                     mode,
-                    initial_step=initial_step
+                    initial_step=epsilon_isolation
                 )
                 
-                if not intervals:
-                    print("\nKhông tìm thấy khoảng phân ly nghiệm nào trong khoảng đã cho.")
-                else:
-                    print("\nBảng giá trị trung gian:")
-                    headers = ["Lần lặp", "x1", "x2", "Mid", "p(x1)", "p(Mid)", "p(x2)", "Độ dài"]
-                    PolynomialIO.print_table(headers, intermediate_data[0])
-                    
-                    print("\n=== Đầu ra ===")
-                    result_data = []
-                    for i, interval in enumerate(intervals):
-                        result_data.append([i+1, f"[{interval[0]:.6f}, {interval[1]:.6f}]"])
-                    headers = ["Khoảng", "Khoảng cách ly"]
-                    PolynomialIO.print_table(headers, result_data)
-                    
-                    if intervals:
-                        # Vẽ đồ thị
-                        roots = [(interval[0] + interval[1]) / 2 for interval in intervals]
-                        PolynomialSolver(coeffs).plot_results(a, b, mode_choice, roots=roots)
-            
+                # Kết luận về khoảng phân ly
+                print_root_finding_results(intervals, isolation_data, isolation_data,
+                                         epsilon_isolation, epsilon_isolation, mode, "f(x)")
+    
             elif mode_choice in [2, 3]:  # Mode 2 và 3: Tìm nghiệm thực
                 print("\n=== Phương pháp sử dụng ===")
                 print(f"Phương pháp chia đôi - Hậu nghiệm - Sai số {'tuyệt đối' if mode == 'absolute' else 'tương đối'}")
@@ -597,92 +651,159 @@ def main():
                     epsilon_root,
                     max_iter,
                     mode,
-                    initial_step=initial_step
+                    initial_step=epsilon_isolation
                 )
                 
                 # Kết luận về khoảng phân ly
-                print("\n=== Kết luận về khoảng phân ly nghiệm ===")
-                if not isolation_data:
-                    print("Không tìm thấy khoảng phân ly nghiệm nào trong khoảng đã cho.")
-                else:
-                    print(f"Tìm thấy {len(isolation_data)} khoảng phân ly nghiệm:")
-                    print("\nBảng giá trị trung gian cho việc tìm khoảng phân ly:")
-                    headers = ["Lần lặp", "x1", "x2", "Mid", "p(x1)", "p(Mid)", "p(x2)", "Độ dài"]
-                    for i, interval_data in enumerate(isolation_data):
-                        print(f"\nKhoảng phân ly {i+1}:")
-                        PolynomialIO.print_table(headers, interval_data)
-                        # Lấy khoảng cuối cùng từ dữ liệu
-                        last_data = interval_data[-1]
-                        x1, x2 = last_data[1], last_data[2]
-                        print(f"Kết luận: Tồn tại duy nhất một nghiệm trong khoảng [{x1:.6f}, {x2:.6f}]")
-                
-                print("\n=== Kết quả tìm nghiệm chính xác ===")
-                if not roots:
-                    print("Không tìm được nghiệm thực nào trong các khoảng phân ly.")
-                else:
-                    print("\nBảng giá trị trung gian cho việc tìm nghiệm chính xác:")
-                    headers = ["Lần lặp", "a", "b", "f(a)*f(Mid)", "Mid", "Sai số"]
-                    for i, (root, intermediate_data) in enumerate(all_intermediate_data):
-                        print(f"\nNghiệm {i+1}: {root:.6f}")
-                        PolynomialIO.print_table(headers, intermediate_data)
-                    
-                    print("\n=== Đầu ra ===")
-                    result_data = []
-                    for i, root in enumerate(roots):
-                        result_data.append([i+1, root])
-                    headers = ["Nghiệm", "Giá trị"]
-                    PolynomialIO.print_table(headers, result_data)
-                    
-                    if roots:
-                        # Vẽ đồ thị
-                        PolynomialSolver(coeffs).plot_results(a, b, mode_choice, roots=roots)
+                print_root_finding_results(roots, all_intermediate_data, isolation_data,
+                                         epsilon_isolation, epsilon_root, mode, "f(x)")
             
-            elif mode_choice in [4, 5, 6, 7]:  # Mode 4, 5, 6, 7: Tìm max, min với sai số
+            elif mode_choice in [4, 5]:  # Mode 4, 5: Tìm max, min của f(x)
                 print("\n=== Phương pháp sử dụng ===")
-                print(f"Phương pháp chia đôi - Hậu nghiệm - Sai số {'tuyệt đối' if mode == 'absolute' else 'tương đối'} để tìm cực trị")
+                print(f"Tìm nghiệm của đạo hàm f'(x) = 0 bằng phương pháp chia đôi")
+                print(f"Sai số {'tương đối' if mode == 'relative' else 'tuyệt đối'}")
                 
-                min_val, max_val, intermediate_values, intermediate_data_intervals, all_intermediate_data, roots, roots_intermediate_data = PolynomialSolver(coeffs).find_extrema(a, b, epsilon, max_iter, mode, use_absolute)
+                # Tạo solver cho đa thức gốc
+                solver = PolynomialSolver(coeffs)
+                # Tạo solver cho đạo hàm
+                deriv_solver = PolynomialSolver(solver.derivative())
                 
-                if not intermediate_data_intervals and not all_intermediate_data:
-                    print("\nKhông tìm thấy điểm cực trị nào trong khoảng đã cho.")
-                else:
-                    if intermediate_data_intervals:
-                        print("\nBảng giá trị trung gian (Tìm khoảng phân ly nghiệm của f'(x)):")
-                        headers = ["Lần lặp", "x1", "x2", "Mid", "p(x1)", "p(Mid)", "p(x2)", "Độ dài"]
-                        for i, interval_data in enumerate(intermediate_data_intervals):
-                            print(f"\nKhoảng cách ly {i+1}:")
-                            PolynomialIO.print_table(headers, interval_data)
-                    
-                    if all_intermediate_data:
-                        print("\nBảng giá trị trung gian (Tìm điểm cực trị):")
-                        headers = ["Lần lặp", "a", "b", "f(a)*f(Mid)", "Mid", "Sai số"]
-                        for i, (point, intermediate_data) in enumerate(all_intermediate_data):
-                            print(f"\nĐiểm cực trị {i+1}: {point:.6f}")
-                            PolynomialIO.print_table(headers, intermediate_data)
-                    
-                    if use_absolute and roots:
-                        print("\nBảng giá trị trung gian (Tìm nghiệm của f(x) = 0):")
-                        headers = ["Lần lặp", "a", "b", "f(a)*f(Mid)", "Mid", "Sai số"]
-                        for i, (root, intermediate_data) in enumerate(roots_intermediate_data):
-                            print(f"\nNghiệm {i+1}: {root:.6f}")
-                            PolynomialIO.print_table(headers, intermediate_data)
-                    
-                    print("\nBảng giá trị tại các điểm:")
-                    headers = ["x", "f(x)", "|f(x)|" if use_absolute else "f(x)"]
-                    PolynomialIO.print_table(headers, intermediate_values)
-                    
-                    print("\n=== Đầu ra ===")
-                    result_data = [
-                        ["Giá trị nhỏ nhất", min_val],
-                        ["Giá trị lớn nhất", max_val]
-                    ]
-                    headers = ["Hàm", f"{'|f(x)|' if use_absolute else 'f(x)'}"]
-                    PolynomialIO.print_table(headers, result_data)
-                    
-                    if intermediate_data_intervals or all_intermediate_data:
-                        # Vẽ đồ thị
-                        critical_points = [point for point, _ in all_intermediate_data]
-                        PolynomialSolver(coeffs).plot_results(a, b, mode_choice, critical_points=critical_points, min_val=min_val, max_val=max_val)
+                # Tìm cực trị của f(x)
+                critical_points, critical_data, critical_isolation_data = deriv_solver.find_real_roots(
+                    epsilon_isolation,
+                    epsilon_root,
+                    max_iter,
+                    mode,
+                    initial_step=min((b-a)/10, epsilon_isolation)
+                )
+                
+                # In kết quả trung gian của việc tìm nghiệm f'(x)
+                print_root_finding_results(critical_points, critical_data, critical_isolation_data,
+                                         epsilon_isolation, epsilon_root, mode, "f'(x)")
+                
+                # Tính giá trị tại các điểm cực trị và điểm đầu mút
+                points = [a] + (critical_points if critical_points else []) + [b]
+                values = []
+                for x in points:
+                    f_x = solver.evaluate_polynomial(x)
+                    values.append([x, f_x, f_x])  # Giá trị thứ 3 để tương thích với mode 6-7
+                
+                # Tìm max, min
+                if not values:
+                    print("\nKhông thể tìm được cực trị trong khoảng đã cho.")
+                    return
+                
+                min_val = min(v[1] for v in values)
+                max_val = max(v[1] for v in values)
+                
+                # In kết quả chi tiết
+                print("\nChi tiết các điểm cực trị:")
+                for x, f_val, _ in values:
+                    if f_val == max_val:
+                        point_type = "Cực đại"
+                    elif f_val == min_val:
+                        point_type = "Cực tiểu"
+                    else:
+                        continue
+                    print(f"\nĐiểm {point_type}: x = {x:.6f}")
+                    print(f"Giá trị f(x) = {f_val:.6f}")
+                
+                print(f"\nGiá trị tại điểm đầu mút:")
+                print(f"f({a}) = {solver.evaluate_polynomial(a):.6f}")
+                print(f"f({b}) = {solver.evaluate_polynomial(b):.6f}")
+                
+                print("\n=== Đầu ra ===")
+                result_data = [
+                    ["Giá trị nhỏ nhất của f(x)", min_val],
+                    ["Giá trị lớn nhất của f(x)", max_val]
+                ]
+                headers = ["f(x)", "Giá trị"]
+                PolynomialIO.print_table(headers, result_data)
+                
+                # Vẽ đồ thị
+                PolynomialSolver(coeffs).plot_results(a, b, mode_choice, critical_points=critical_points, min_val=min_val, max_val=max_val)
+            
+            elif mode_choice in [6, 7]:  # Mode 6, 7: Tìm max, min của |f(x)|
+                print("\n=== Phương pháp sử dụng ===")
+                print(f"1. Tìm nghiệm của đạo hàm f'(x) = 0 để xác định cực trị của f(x)")
+                print(f"2. Tìm nghiệm của f(x) = 0 để xác định cực trị của |f(x)|")
+                print(f"Sai số {'tương đối' if mode == 'relative' else 'tuyệt đối'}")
+                
+                # Tạo solver cho đa thức gốc
+                solver = PolynomialSolver(coeffs)
+                # Tạo solver cho đạo hàm
+                deriv_solver = PolynomialSolver(solver.derivative())
+                
+                # Tìm cực trị của f(x)
+                critical_points, critical_data, critical_isolation_data = deriv_solver.find_real_roots(
+                    epsilon_isolation,
+                    epsilon_root,
+                    max_iter,
+                    mode,
+                    initial_step=min((b-a)/10, epsilon_isolation)
+                )
+                
+                # In kết quả trung gian của việc tìm nghiệm f'(x)
+                print_root_finding_results(critical_points, critical_data, critical_isolation_data,
+                                         epsilon_isolation, epsilon_root, mode, "f'(x)")
+                
+                # Tìm nghiệm của f(x) = 0
+                roots, roots_data, roots_isolation_data = solver.find_real_roots(
+                    epsilon_isolation,
+                    epsilon_root,
+                    max_iter,
+                    mode,
+                    initial_step=min((b-a)/10, epsilon_isolation)
+                )
+                
+                # In kết quả trung gian của việc tìm nghiệm f(x)
+                print_root_finding_results(roots, roots_data, roots_isolation_data,
+                                         epsilon_isolation, epsilon_root, mode, "f(x)")
+                
+                # Tính giá trị tại các điểm đặc biệt
+                all_points = [a] + (critical_points if critical_points else []) + (roots if roots else []) + [b]
+                all_points = sorted(list(set(all_points)))  # Loại bỏ trùng lặp và sắp xếp
+                
+                values = []
+                for x in all_points:
+                    f_x = solver.evaluate_polynomial(x)
+                    values.append([x, f_x, abs(f_x)])
+                
+                if not values:
+                    print("\nKhông thể tìm được cực trị trong khoảng đã cho.")
+                    return
+                
+                # Tìm max, min của |f(x)|
+                abs_min = min(v[2] for v in values)
+                abs_max = max(v[2] for v in values)
+                
+                # In kết quả chi tiết
+                print("\nChi tiết các điểm cực trị của |f(x)|:")
+                for x, f_val, abs_val in values:
+                    if abs_val == abs_max:
+                        point_type = "Cực đại"
+                    elif abs_val == abs_min:
+                        point_type = "Cực tiểu"
+                    else:
+                        continue
+                    print(f"\nĐiểm {point_type}: x = {x:.6f}")
+                    print(f"Giá trị f(x) = {f_val:.6f}")
+                    print(f"Giá trị |f(x)| = {abs_val:.6f}")
+                
+                print(f"\nGiá trị tại điểm đầu mút:")
+                print(f"|f({a})| = {abs(solver.evaluate_polynomial(a)):.6f}")
+                print(f"|f({b})| = {abs(solver.evaluate_polynomial(b)):.6f}")
+                
+                print("\n=== Đầu ra ===")
+                result_data = [
+                    ["Giá trị nhỏ nhất của |f(x)|", abs_min],
+                    ["Giá trị lớn nhất của |f(x)|", abs_max]
+                ]
+                headers = ["|f(x)|", "Giá trị"]
+                PolynomialIO.print_table(headers, result_data)
+                
+                # Vẽ đồ thị
+                PolynomialSolver(coeffs).plot_results(a, b, mode_choice, critical_points=all_points, min_val=abs_min, max_val=abs_max)
         
         except ValueError as e:
             print(f"\nLỗi trong quá trình tính toán: {e}")
